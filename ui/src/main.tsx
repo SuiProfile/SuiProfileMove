@@ -29,14 +29,16 @@ function RegisterEnokiWallets() {
     console.log('Registering Enoki wallets for network:', network);
 
     const { unregister } = registerEnokiWallets({
-      apiKey: 'enoki_public_112e16a1ce7fc2ff1e4e9bd06b951de6',
+      apiKey: 'enoki_public_74bc33834d7f771f32a286130bd80fda',
       providers: {
         google: {
-          clientId: '20125149505-k6stooabdj31t2lsibg5jq645ge90vbl.apps.googleusercontent.com',
+          clientId: '416406446038-ugateqp2arcremdnk73nv79psugha1rk.apps.googleusercontent.com',
         },
       },
-      client,
-      network,
+      client: client as any,
+      network: network as any,
+      // SPONSORED_TRANSACTIONS için private key
+      privateKey: 'enoki_private_6cc22577001117d90a9eb56af8bd4811',
     });
 
     console.log('Enoki wallets registered successfully');

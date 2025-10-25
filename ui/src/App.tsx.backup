@@ -1,0 +1,795 @@
+import { useState, useEffect } from "react";
+import { Box, Button, Flex, Heading, Text, Card, TextField, TextArea } from "@radix-ui/themes";
+import { ConnectButton } from "@mysten/dapp-kit";
+import { isEnokiWallet } from "@mysten/enoki";
+import { useZkLogin } from "./hooks/useZkLogin";
+import { useSuiClient } from "@mysten/dapp-kit";
+import { ProfileService, ProfileData } from "./services/profileService";
+import { LinkManager } from "./components/LinkManager";
+import { AvatarUpload } from "./components/AvatarUpload";
+import { ThemeSelector } from "./components/ThemeSelector";
+import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
+import { AdvancedLinkManager } from "./components/AdvancedLinkManager";
+import { TemplateSelector } from "./components/TemplateSelector";
+import { ThemeService, Theme } from "./services/themeService";
+import { AnalyticsService } from "./services/analyticsService";
+import { AdvancedLink } from "./services/linkTypeService";
+import { ProfileTemplate } from "./services/templateService";
+import "./styles/theme.css";
+
+// Icons (using simple Unicode characters for now)
+const ProfileIcon = () => <span>📄</span>;
+const AppearanceIcon = () => <span>🎨</span>;
+const AnalyticsIcon = () => <span>📊</span>;
+const SettingIcon = () => <span>⚙️</span>;
+const CopyIcon = () => <span>📋</span>;
+const PlusIcon = () => <span>➕</span>;
+const EditIcon = () => <span>✏️</span>;
+const PreviewIcon = () => <span>👁️</span>;
+const ShareIcon = () => <span>🔗</span>;
+
+// Constants from deployed_ids.txt
+const PACKAGE_ID = "0x1f0deefd7840fe7cd16d99b5700432f3447d27dc36a3525da23b6679c91531fe";
+const REGISTRY_ID = "0xda2c6b3e1f96016df661e9d2bec7ab3b89b6c070fc03e784ed42b04b694d6f14";
+
+export default function App() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentView, setCurrentView] = useState<'login' | 'profile' | 'display'>('login');
+  const [showThemeSelector, setShowThemeSelector] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  const [title, setTitle] = useState("");
+  const [bio, setBio] = useState("");
+  const [links, setLinks] = useState<Record<string, string>>({});
+  const [advancedLinks, setAdvancedLinks] = useState<AdvancedLink[]>([]);
+  const [avatarPreview, setAvatarPreview] = useState("");
+  const [profileService, setProfileService] = useState<ProfileService | null>(null);
+  const [themeService] = useState(() => new ThemeService());
+  const [currentTheme, setCurrentTheme] = useState<Theme>(() => themeService.getCurrentTheme());
+  const { loginWithGoogle, isAuthenticated, user } = useZkLogin();
+  const suiClient = useSuiClient();
+
+  // Initialize profile service
+  useEffect(() => {
+    const initProfileService = async () => {
+      if (suiClient) {
+        // Create a new SuiClient instance for the service
+        const { SuiClient } = await import("@mysten/sui/client");
+        const serviceClient = new SuiClient({
+          url: "https://fullnode.testnet.sui.io:443"
+        });
+        setProfileService(new ProfileService(serviceClient, PACKAGE_ID, REGISTRY_ID));
+      }
+    };
+    
+    initProfileService();
+  }, [suiClient]);
+
+  // Check if we're viewing a profile (URL parameter)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const objectId = urlParams.get('objectId');
+    const slug = urlParams.get('slug');
+    
+    if (objectId || slug) {
+      setCurrentView('display');
+      loadProfileData(objectId, slug);
+      
+      // Track profile view for analytics
+      const analyticsService = new AnalyticsService(objectId || slug || 'anonymous');
+      analyticsService.trackProfileView(
+        document.referrer,
+        navigator.userAgent,
+        'unknown' // IP would be determined server-side
+      );
+    }
+  }, []);
+
+  // Auto-redirect to profile page when wallet is connected
+  useEffect(() => {
+    if (isAuthenticated && user && currentView === 'login') {
+      setCurrentView('profile');
+    }
+  }, [isAuthenticated, user, currentView]);
+
+  const loadProfileData = async (objectId?: string | null, slug?: string | null) => {
+    if (!profileService) {
+      console.warn('Profile service not initialized');
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      let profile: ProfileData | null = null;
+      
+      if (objectId) {
+        profile = await profileService.getProfileByObjectId(objectId);
+      } else if (slug) {
+        profile = await profileService.getProfileBySlug(slug);
+      }
+      
+      if (profile) {
+        setProfileData(profile);
+        setBio(profile.bio);
+        setLinks(profile.links);
+        // Set avatar preview if CID exists
+        if (profile.avatar_cid) {
+          setAvatarPreview(`https://aggregator.walrus-testnet.walrus.space/v1/blobs/${profile.avatar_cid}`);
+        }
+      } else {
+        console.warn('Profile not found');
+        // Show user-friendly message
+        alert('Profile not found. Please check the URL parameters.');
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      alert('Failed to load profile. Please try again later.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    try {
+      await loginWithGoogle();
+      setCurrentView('profile');
+    } catch (error) {
+      console.error("Login failed:", error);
+      alert("Login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAvatarUpload = (blobId: string, previewUrl: string) => {
+    if (!blobId || blobId === 'undefined') {
+      console.error('Invalid blobId received:', blobId);
+      return;
+    }
+    
+    setAvatarPreview(previewUrl);
+    // TODO: Save blobId to profile when creating/updating profile
+    console.log('Avatar uploaded with blobId:', blobId);
+  };
+
+  const handleThemeChange = (theme: Theme) => {
+    setCurrentTheme(theme);
+  };
+
+  const handleAnalyticsToggle = () => {
+    setShowAnalytics(!showAnalytics);
+    setShowThemeSelector(false); // Close theme selector when opening analytics
+    setShowTemplates(false); // Close templates when opening analytics
+  };
+
+  const handleTemplatesToggle = () => {
+    setShowTemplates(!showTemplates);
+    setShowThemeSelector(false); // Close theme selector when opening templates
+    setShowAnalytics(false); // Close analytics when opening templates
+  };
+
+  const handleTemplateSelect = (template: ProfileTemplate) => {
+    // Apply template theme
+    setCurrentTheme({
+      ...currentTheme,
+      colors: {
+        ...currentTheme.colors,
+        primary: template.theme.primary,
+        secondary: template.theme.secondary,
+        background: template.theme.background,
+        text: template.theme.text,
+        accent: template.theme.accent
+      }
+    });
+    
+    // Apply template layout and sections
+    // This would be implemented based on your specific needs
+    
+    setShowTemplates(false);
+    console.log('Template selected:', template.name);
+  };
+
+
+  // Display view for public profiles
+  if (currentView === 'display') {
+    if (isLoading) {
+      return (
+        <Box 
+          className={`theme-container theme-${currentTheme.type} theme-${currentTheme.id}`}
+          style={{ 
+            minHeight: "100vh", 
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "center",
+            backgroundColor: "var(--theme-background)",
+            color: "var(--theme-text)"
+          }}
+        >
+          <Box style={{ textAlign: "center" }}>
+            <Text size="4" style={{ color: "var(--theme-text-secondary)" }}>Loading profile...</Text>
+          </Box>
+        </Box>
+      );
+    }
+
+    if (!profileData) {
+    return (
+      <Box style={{ 
+        minHeight: "100vh", 
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "center",
+          backgroundColor: "#f8f9fa"
+        }}>
+          <Box style={{ textAlign: "center" }}>
+            <Text size="4" style={{ color: "#ef4444" }}>Profile not found</Text>
+            <Text size="2" style={{ color: "#6b7280", marginTop: "8px" }}>
+              Please check the URL parameters
+            </Text>
+          </Box>
+        </Box>
+      );
+    }
+    return (
+      <Box style={{ 
+        minHeight: "100vh", 
+        backgroundColor: "#f8f9fa",
+        padding: "20px"
+      }}>
+        <Box style={{ 
+          maxWidth: "600px", 
+          margin: "0 auto",
+          backgroundColor: "white",
+          borderRadius: "12px",
+          padding: "40px",
+          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+        }}>
+          {/* Profile Header */}
+          <Box style={{ textAlign: "center", marginBottom: "40px" }}>
+            <Box style={{ 
+              width: "120px", 
+              height: "120px", 
+              borderRadius: "50%", 
+              backgroundColor: "#6366f1",
+              margin: "0 auto 20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "48px",
+              color: "white",
+              backgroundImage: profileData.avatar_cid ? `url(https://aggregator.walrus-testnet.walrus.space/v1/blobs/${profileData.avatar_cid})` : undefined,
+              backgroundSize: "cover",
+              backgroundPosition: "center"
+            }}>
+              {!profileData.avatar_cid && profileData.base_username.charAt(0).toUpperCase()}
+            </Box>
+            <Heading size="6" style={{ marginBottom: "8px" }}>
+              {profileData.base_username}
+          </Heading>
+            <Text size="3" style={{ color: "#666", marginBottom: "20px" }}>
+              {profileData.bio}
+          </Text>
+          </Box>
+
+          {/* Links */}
+          <Box>
+            {Object.entries(profileData.links).map(([label, url]) => (
+          <Button
+                key={label}
+            style={{
+                  width: "100%",
+                  marginBottom: "12px",
+                  padding: "16px",
+                  backgroundColor: "#6366f1",
+                  color: "white",
+              border: "none",
+                  borderRadius: "8px",
+              cursor: "pointer",
+                  fontSize: "16px",
+                  fontWeight: "500"
+                }}
+                onClick={() => window.open(url, '_blank')}
+              >
+                {label}
+          </Button>
+            ))}
+          </Box>
+        </Box>
+      </Box>
+    );
+  }
+
+  // Login view
+  if (currentView === 'login') {
+  return (
+    <Box style={{ 
+      minHeight: "100vh", 
+      display: "flex", 
+      alignItems: "center", 
+      justifyContent: "center",
+        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+      padding: "20px"
+    }}>
+      <Card style={{ 
+          backgroundColor: "white", 
+        padding: "60px 40px",
+        textAlign: "center",
+        maxWidth: "500px",
+          width: "100%",
+          borderRadius: "16px",
+          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.1)"
+      }}>
+        {/* Logo */}
+        <Box style={{ marginBottom: "40px" }}>
+            <Heading size="6" style={{ marginBottom: "8px", color: "#1f2937" }}>
+              LINKE
+          </Heading>
+            <Text size="3" style={{ color: "#6b7280" }}>
+              Create your link-in-bio profile
+          </Text>
+        </Box>
+
+        {/* Login Options */}
+        <Flex direction="column" gap="4" style={{ marginBottom: "30px" }}>
+          <Button
+            onClick={handleGoogleLogin}
+            disabled={isLoading}
+            style={{
+                backgroundColor: isLoading ? "#9ca3af" : "#4285f4",
+                color: "white",
+              border: "none",
+              cursor: isLoading ? "not-allowed" : "pointer",
+              padding: "16px 32px",
+                fontSize: "16px",
+              fontWeight: "600",
+                borderRadius: "8px",
+              width: "100%",
+                height: "48px",
+            }}
+          >
+            {isLoading ? "Connecting..." : "Login with Google (ZK)"}
+          </Button>
+
+          {/* Divider */}
+          <Box style={{ textAlign: "center", margin: "16px 0" }}>
+              <Text size="2" style={{ color: "#9ca3af" }}>
+              OR
+            </Text>
+          </Box>
+
+          {/* Sui Wallet Connection */}
+          <Box style={{ width: "100%" }}>
+            <ConnectButton 
+              walletFilter={(wallet) => !isEnokiWallet(wallet)}
+              style={{
+                width: "100%",
+                  height: "48px",
+                  fontSize: "16px",
+                fontWeight: "600",
+                  borderRadius: "8px",
+                backgroundColor: "transparent",
+                  border: "2px solid #6366f1",
+                  color: "#6366f1",
+              }}
+            />
+          </Box>
+        </Flex>
+        </Card>
+      </Box>
+    );
+  }
+
+  // Profile management view
+  if (currentView === 'profile' && isAuthenticated && user) {
+    return (
+        <Box 
+          className={`theme-container theme-${currentTheme.type} theme-${currentTheme.id}`}
+          style={{ 
+            minHeight: "100vh", 
+            backgroundColor: "var(--theme-background)",
+            color: "var(--theme-text)",
+            display: "flex"
+          }}
+        >
+        {/* Left Sidebar */}
+        <Box 
+          className="theme-card"
+          style={{ 
+            width: "300px", 
+            backgroundColor: "var(--theme-surface)", 
+            borderRight: `1px solid var(--theme-border)`,
+            padding: "24px"
+          }}
+        >
+          {/* Logo */}
+          <Heading size="5" style={{ marginBottom: "32px", color: "#1f2937" }}>
+            LINKE
+          </Heading>
+
+          {/* Profile Card */}
+          <Box style={{ 
+            backgroundColor: "#f9fafb", 
+            borderRadius: "12px", 
+            padding: "20px", 
+            marginBottom: "32px" 
+          }}>
+            <Box style={{ display: "flex", alignItems: "center", marginBottom: "16px" }}>
+              <Box style={{ 
+                width: "48px", 
+                height: "48px", 
+                borderRadius: "50%", 
+                backgroundColor: "#6366f1",
+                marginRight: "12px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "white",
+                fontSize: "20px",
+                backgroundImage: avatarPreview ? `url(${avatarPreview})` : undefined,
+                backgroundSize: "cover",
+                backgroundPosition: "center"
+              }}>
+                {!avatarPreview && user.name.charAt(0).toUpperCase()}
+              </Box>
+              <Box>
+                <Text size="3" style={{ fontWeight: "600", color: "#1f2937" }}>
+                  {user.name}
+                </Text>
+                <Text size="2" style={{ color: "#6b7280" }}>
+                  Personal Account
+                </Text>
+              </Box>
+            </Box>
+            
+            <Box style={{ 
+              backgroundColor: "white", 
+              borderRadius: "8px", 
+              padding: "12px", 
+              marginBottom: "12px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between"
+            }}>
+              <Text size="2" style={{ color: "#6b7280" }}>
+                link3.to/{user.name}
+              </Text>
+              <CopyIcon />
+            </Box>
+            
+            <Button style={{
+              width: "100%",
+              backgroundColor: "#374151",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              padding: "12px",
+              fontSize: "14px",
+              fontWeight: "500"
+            }}>
+              Customize Profile Link
+            </Button>
+          </Box>
+
+          {/* Navigation */}
+          <Box>
+            <Box style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              padding: "12px", 
+              backgroundColor: "#f3f4f6",
+              borderRadius: "8px",
+              marginBottom: "8px",
+              cursor: "pointer"
+            }}>
+              <ProfileIcon />
+              <Text size="3" style={{ marginLeft: "12px", fontWeight: "500" }}>
+                Profile
+              </Text>
+            </Box>
+            
+            <Box 
+              style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                padding: "12px", 
+                borderRadius: "8px",
+                marginBottom: "8px",
+                cursor: "pointer",
+                backgroundColor: showThemeSelector ? "#f3f4f6" : "transparent"
+              }}
+              onClick={() => setShowThemeSelector(!showThemeSelector)}
+            >
+              <AppearanceIcon />
+              <Text size="3" style={{ marginLeft: "12px", color: "#6b7280" }}>
+                Appearance
+              </Text>
+            </Box>
+            
+            <Box 
+              style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                padding: "12px", 
+                borderRadius: "8px",
+                marginBottom: "8px",
+                cursor: "pointer",
+                backgroundColor: showAnalytics ? "#f3f4f6" : "transparent"
+              }}
+              onClick={handleAnalyticsToggle}
+            >
+              <AnalyticsIcon />
+              <Text size="3" style={{ marginLeft: "12px", color: "#6b7280" }}>
+                Analytics
+              </Text>
+            </Box>
+            
+            <Box 
+              style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                padding: "12px", 
+                borderRadius: "8px",
+                marginBottom: "8px",
+                cursor: "pointer",
+                backgroundColor: showTemplates ? "#f3f4f6" : "transparent"
+              }}
+              onClick={handleTemplatesToggle}
+            >
+              <span>📋</span>
+              <Text size="3" style={{ marginLeft: "12px", color: "#6b7280" }}>
+                Templates
+              </Text>
+            </Box>
+            
+            <Box style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              padding: "12px", 
+              borderRadius: "8px",
+              marginBottom: "8px",
+              cursor: "pointer"
+            }}>
+              <SettingIcon />
+              <Text size="3" style={{ marginLeft: "12px", color: "#6b7280" }}>
+                Setting
+              </Text>
+            </Box>
+          </Box>
+
+          {/* Theme Selector */}
+          {showThemeSelector && (
+            <Box style={{ 
+              marginTop: "16px", 
+              backgroundColor: "#f9fafb", 
+              borderRadius: "12px", 
+              padding: "16px"
+            }}>
+              <ThemeSelector 
+                onThemeChange={handleThemeChange}
+                disabled={!isAuthenticated}
+              />
+            </Box>
+          )}
+
+
+          {/* Create Organization */}
+          <Box style={{ 
+            marginTop: "auto", 
+            backgroundColor: "#f9fafb", 
+            borderRadius: "12px", 
+            padding: "20px",
+            textAlign: "center"
+          }}>
+            <Text size="3" style={{ fontWeight: "600", marginBottom: "8px" }}>
+              Create your own organization
+            </Text>
+            <Text size="2" style={{ color: "#6b7280", marginBottom: "12px" }}>
+              Create your organization and let it grow
+            </Text>
+            <PlusIcon />
+          </Box>
+        </Box>
+
+        {/* Main Content */}
+        <Box style={{ flex: 1, padding: "24px" }}>
+          {/* Analytics Dashboard */}
+          {showAnalytics ? (
+            <Box 
+              className="theme-card"
+              style={{ 
+                backgroundColor: "var(--theme-surface)", 
+                borderRadius: "var(--theme-border-radius)", 
+                padding: "32px",
+                boxShadow: `0 1px 3px var(--theme-shadow)`
+              }}
+            >
+              <AnalyticsDashboard 
+                profileId={user?.name || "anonymous"}
+                onClose={() => setShowAnalytics(false)}
+              />
+            </Box>
+          ) : showTemplates ? (
+            <Box 
+              className="theme-card"
+              style={{ 
+                backgroundColor: "var(--theme-surface)", 
+                borderRadius: "var(--theme-border-radius)", 
+                padding: "32px",
+                boxShadow: `0 1px 3px var(--theme-shadow)`
+              }}
+            >
+              <TemplateSelector 
+                onTemplateSelect={handleTemplateSelect}
+                onClose={() => setShowTemplates(false)}
+                disabled={!isAuthenticated}
+              />
+            </Box>
+          ) : (
+            <Box 
+              className="theme-card"
+              style={{ 
+                backgroundColor: "var(--theme-surface)", 
+                borderRadius: "var(--theme-border-radius)", 
+                padding: "32px",
+                boxShadow: `0 1px 3px var(--theme-shadow)`
+              }}
+            >
+            {/* Profile Header */}
+            <Box style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "space-between",
+              marginBottom: "32px"
+            }}>
+              <Box style={{ display: "flex", alignItems: "center" }}>
+                <Box style={{ 
+                  width: "64px", 
+                  height: "64px", 
+                  borderRadius: "50%", 
+                  backgroundColor: "#6366f1",
+                  marginRight: "16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  fontSize: "24px",
+                  backgroundImage: avatarPreview ? `url(${avatarPreview})` : undefined,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center"
+                }}>
+                  {!avatarPreview && user.name.charAt(0).toUpperCase()}
+                </Box>
+                <Box>
+                  <Text size="4" style={{ fontWeight: "600", color: "#1f2937" }}>
+                    {user.name}
+                  </Text>
+                  <EditIcon />
+                </Box>
+              </Box>
+              
+              <Box style={{ display: "flex", gap: "12px" }}>
+                <Button style={{
+                  backgroundColor: "transparent",
+                  border: "1px solid #d1d5db",
+                  color: "#374151",
+                  borderRadius: "8px",
+                  padding: "8px 16px"
+                }}>
+                  <PreviewIcon />
+                  <Text style={{ marginLeft: "8px" }}>Preview</Text>
+                </Button>
+                <Button style={{
+                  backgroundColor: "transparent",
+                  border: "1px solid #d1d5db",
+                  color: "#374151",
+                  borderRadius: "8px",
+                  padding: "8px 16px"
+                }}>
+                  <ShareIcon />
+                  <Text style={{ marginLeft: "8px" }}>Share</Text>
+                </Button>
+              </Box>
+            </Box>
+
+            {/* Profile Form */}
+            <Box>
+              {/* Avatar Upload */}
+              <Box style={{ marginBottom: "32px" }}>
+                <AvatarUpload
+                  onUpload={handleAvatarUpload}
+                  currentAvatar={avatarPreview}
+                />
+              </Box>
+
+              <Box style={{ marginBottom: "24px" }}>
+                <Text size="3" style={{ fontWeight: "500", marginBottom: "8px" }}>
+                  Title
+                </Text>
+                <TextField.Root
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter your title"
+                  style={{ width: "100%" }}
+                />
+                <Text size="1" style={{ color: "#6b7280", textAlign: "right", marginTop: "4px" }}>
+                  {title.length}/30
+                </Text>
+              </Box>
+
+              <Box style={{ marginBottom: "32px" }}>
+                <Text size="3" style={{ fontWeight: "500", marginBottom: "8px" }}>
+                  Bio
+          </Text>
+                <TextArea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Tell us about yourself"
+                  style={{ width: "100%", minHeight: "100px" }}
+                />
+                <Text size="1" style={{ color: "#6b7280", textAlign: "right", marginTop: "4px" }}>
+                  {bio.length}/150
+          </Text>
+              </Box>
+
+              {/* Link Manager */}
+              {profileService && (
+                <LinkManager
+                  profileService={profileService}
+                  profileId={user.address} // Using address as profileId for now
+                  links={links}
+                  onLinksUpdate={setLinks}
+                />
+              )}
+
+              {/* Advanced Link Manager */}
+              <Box style={{ marginTop: "32px" }}>
+                <AdvancedLinkManager
+                  links={advancedLinks}
+                  onLinksChange={setAdvancedLinks}
+                  disabled={!isAuthenticated}
+                />
+              </Box>
+
+              {/* Add Block */}
+              <Box style={{ 
+                textAlign: "center", 
+                padding: "40px",
+                border: "2px dashed #e5e7eb",
+                borderRadius: "12px",
+                marginTop: "32px"
+              }}>
+                <Box style={{ 
+                  width: "64px", 
+                  height: "64px", 
+                  borderRadius: "50%", 
+                  backgroundColor: "#f3f4f6",
+                  margin: "0 auto 16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "24px",
+                  color: "#6b7280"
+                }}>
+                  <PlusIcon />
+                </Box>
+                <Button style={{
+                  backgroundColor: "#374151",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "12px 24px",
+                  fontSize: "14px",
+                  fontWeight: "500"
+                }}>
+                  + Add a Block
+                </Button>
+              </Box>
+            </Box>
+          </Box>
+          )}
+        </Box>
+    </Box>
+  );
+}

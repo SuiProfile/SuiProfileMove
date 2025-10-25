@@ -1,5 +1,3 @@
-node_modules
-build
-Move.lock
-.DS_Store*
-.vscode
+build/*
+.trace
+.coverage*

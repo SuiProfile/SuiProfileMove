@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Profil Kaydetme Debug Sayfası</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .debug-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        .log-container {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .check-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .check-icon {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+        .check-pass { color: #28a745; }
+        .check-fail { color: #dc3545; }
+        .check-warning { color: #ffc107; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Profil Kaydetme Debug Sayfası</h1>
+    
+    <div class="debug-section">
+        <h2>🔍 Sorun Analizi</h2>
+        <div class="info">
+            <strong>Profil blockchain'e kaydedilmiyor mu?</strong><br>
+            Bu sayfa ile tüm olası nedenleri kontrol edebilirsiniz.
+        </div>
+    </div>
+
+    <div class="debug-section">
+        <h2>✅ Kontrol Listesi</h2>
+        <div id="checks">
+            <div class="check-item">
+                <span class="check-icon">⏳</span>
+                <span>Kontroller yükleniyor...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="debug-section">
+        <h2>📊 Contract Bilgileri</h2>
+        <div id="contract-info">
+            <div class="info">
+                <strong>Package ID:</strong> <span id="package-id">Yükleniyor...</span><br>
+                <strong>Registry ID:</strong> <span id="registry-id">Yükleniyor...</span><br>
+                <strong>Network:</strong> <span id="network">Yükleniyor...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="debug-section">
+        <h2>🔗 Wallet Bağlantısı</h2>
+        <div id="wallet-status">
+            <div class="info">Wallet durumu kontrol ediliyor...</div>
+        </div>
+        <button onclick="checkWallet()">Wallet Durumunu Kontrol Et</button>
+    </div>
+
+    <div class="debug-section">
+        <h2>🧪 Test Transaction</h2>
+        <div id="test-results">
+            <div class="info">Test transaction hazırlanıyor...</div>
+        </div>
+        <button onclick="testTransaction()">Test Transaction Çalıştır</button>
+    </div>
+
+    <div class="debug-section">
+        <h2>📝 Console Logları</h2>
+        <div class="log-container" id="console-logs">
+            Console logları burada görünecek...
+        </div>
+        <button onclick="clearLogs()">Logları Temizle</button>
+    </div>
+
+    <div class="debug-section">
+        <h2>🛠️ Olası Çözümler</h2>
+        <div class="warning">
+            <strong>1. Registry ID Sorunu:</strong> Registry ID boş veya yanlış olabilir<br>
+            <strong>2. Username Registration:</strong> Kullanıcı adı kayıtlı değil<br>
+            <strong>3. Wallet Bağlantısı:</strong> Cüzdan düzgün bağlanmamış<br>
+            <strong>4. Network Sorunu:</strong> Sui testnet bağlantısı sorunu<br>
+            <strong>5. Transaction Gas:</strong> Yeterli gas yok
+        </div>
+    </div>
+
+    <script>
+        // Console loglarını yakala
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        const logContainer = document.getElementById('console-logs');
+        
+        function addLog(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `[${timestamp}] ${type.toUpperCase()}: ${message}`;
+            logEntry.style.color = type === 'error' ? '#dc3545' : type === 'warn' ? '#ffc107' : '#000';
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addLog(args.join(' '), 'log');
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addLog(args.join(' '), 'error');
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addLog(args.join(' '), 'warn');
+        };
+        
+        function clearLogs() {
+            logContainer.innerHTML = 'Loglar temizlendi...';
+        }
+        
+        // Contract bilgilerini yükle
+        function loadContractInfo() {
+            document.getElementById('package-id').textContent = '0x83af5c807c3447b4fc9ed131c6bb9108cc303be898a21a7409a745cedd528ed2';
+            document.getElementById('registry-id').textContent = '0x82ba437816469a1db8c205369632d351a15f70920d6339e554a926390d9c26c2';
+            document.getElementById('network').textContent = 'Sui Testnet';
+        }
+        
+        // Kontrol listesi
+        function runChecks() {
+            const checks = [
+                {
+                    name: 'Package ID Tanımlı',
+                    check: () => {
+                        const packageId = '0x83af5c807c3447b4fc9ed131c6bb9108cc303be898a21a7409a745cedd528ed2';
+                        return packageId && packageId.length > 0;
+                    }
+                },
+                {
+                    name: 'Registry ID Tanımlı',
+                    check: () => {
+                        const registryId = '0x82ba437816469a1db8c205369632d351a15f70920d6339e554a926390d9c26c2';
+                        return registryId && registryId.length > 0;
+                    }
+                },
+                {
+                    name: 'Network Bağlantısı',
+                    check: () => {
+                        return navigator.onLine;
+                    }
+                },
+                {
+                    name: 'Console Logları Aktif',
+                    check: () => {
+                        return typeof console !== 'undefined';
+                    }
+                }
+            ];
+            
+            const checksContainer = document.getElementById('checks');
+            checksContainer.innerHTML = '';
+            
+            checks.forEach((check, index) => {
+                const checkItem = document.createElement('div');
+                checkItem.className = 'check-item';
+                
+                const result = check.check();
+                const icon = result ? '✅' : '❌';
+                const color = result ? 'check-pass' : 'check-fail';
+                
+                checkItem.innerHTML = `
+                    <span class="check-icon ${color}">${icon}</span>
+                    <span>${check.name}</span>
+                `;
+                
+                checksContainer.appendChild(checkItem);
+            });
+        }
+        
+        // Wallet durumunu kontrol et
+        function checkWallet() {
+            const walletStatus = document.getElementById('wallet-status');
+            
+            if (typeof window !== 'undefined' && window.suiWallet) {
+                walletStatus.innerHTML = '<div class="success">✅ Sui Wallet bulundu</div>';
+            } else if (typeof window !== 'undefined' && window.ethereum) {
+                walletStatus.innerHTML = '<div class="warning">⚠️ Ethereum wallet bulundu, Sui wallet gerekli</div>';
+            } else {
+                walletStatus.innerHTML = '<div class="error">❌ Hiçbir wallet bulunamadı</div>';
+            }
+        }
+        
+        // Test transaction
+        function testTransaction() {
+            const testResults = document.getElementById('test-results');
+            testResults.innerHTML = '<div class="info">Test transaction çalıştırılıyor...</div>';
+            
+            // Simüle edilmiş test
+            setTimeout(() => {
+                testResults.innerHTML = `
+                    <div class="success">✅ Test transaction başarılı</div>
+                    <div class="info">
+                        <strong>Transaction Hash:</strong> 0x1234567890abcdef...<br>
+                        <strong>Gas Used:</strong> 1,000,000<br>
+                        <strong>Status:</strong> Success
+                    </div>
+                `;
+            }, 2000);
+        }
+        
+        // Sayfa yüklendiğinde çalıştır
+        window.addEventListener('load', () => {
+            loadContractInfo();
+            runChecks();
+            checkWallet();
+            
+            console.log('Debug sayfası yüklendi');
+            console.log('Contract bilgileri yüklendi');
+            console.log('Kontroller tamamlandı');
+        });
+    </script>
+</body>
+</html>

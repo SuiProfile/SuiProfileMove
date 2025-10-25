@@ -108,14 +108,16 @@ export function useZkLogin(): UseZkLoginReturn {
       }
 
       console.log('Using wallet:', targetWallet.name);
+      console.log('Wallet features:', targetWallet.features);
+      
+      // Check if wallet has the required features
+      if (!targetWallet.features || !targetWallet.features['sui:signTransaction']) {
+        throw new Error('Wallet does not support required features');
+      }
       
       // Use Enoki wallet with proper OAuth flow
       await connect({ 
-        wallet: targetWallet,
-        // Force OAuth popup
-        options: {
-          force: true
-        }
+        wallet: targetWallet
       });
       console.log('Enoki login successful');
       
@@ -140,7 +142,8 @@ export function useZkLogin(): UseZkLoginReturn {
       }, 1000);
     } catch (error) {
       console.error('Enoki login error:', error);
-      alert('Login failed. Please try again.');
+      console.error('Error details:', error);
+      alert('Login failed: ' + (error as Error).message);
     } finally {
       setIsLoading(false);
     }

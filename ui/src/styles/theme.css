@@ -1,0 +1,270 @@
+/* Theme CSS Variables */
+:root {
+  /* Default theme variables */
+  --theme-primary: #6366f1;
+  --theme-secondary: #8b5cf6;
+  --theme-background: #ffffff;
+  --theme-surface: #f8fafc;
+  --theme-text: #1f2937;
+  --theme-text-secondary: #6b7280;
+  --theme-accent: #10b981;
+  --theme-border: #e5e7eb;
+  --theme-shadow: rgba(0, 0, 0, 0.1);
+  
+  --theme-font-primary: 'Inter', system-ui, sans-serif;
+  --theme-font-secondary: 'Inter', system-ui, sans-serif;
+  --theme-font-size-small: 12px;
+  --theme-font-size-medium: 14px;
+  --theme-font-size-large: 16px;
+  --theme-font-size-xlarge: 20px;
+  
+  --theme-border-radius: 8px;
+  --theme-spacing-small: 8px;
+  --theme-spacing-medium: 16px;
+  --theme-spacing-large: 24px;
+  --theme-spacing-xlarge: 32px;
+}
+
+/* Theme-specific styles */
+.theme-light {
+  color-scheme: light;
+}
+
+.theme-dark {
+  color-scheme: dark;
+}
+
+.theme-colorful {
+  color-scheme: light;
+}
+
+/* Global theme-aware components */
+.theme-container {
+  background: var(--theme-background);
+  color: var(--theme-text);
+  font-family: var(--theme-font-primary);
+  transition: all 0.3s ease;
+}
+
+.theme-card {
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
+  border-radius: var(--theme-border-radius);
+  box-shadow: 0 1px 3px var(--theme-shadow);
+  transition: all 0.3s ease;
+}
+
+.theme-card:hover {
+  box-shadow: 0 4px 12px var(--theme-shadow);
+  transform: translateY(-2px);
+}
+
+.theme-button-primary {
+  background: var(--theme-primary);
+  color: white;
+  border: none;
+  border-radius: var(--theme-border-radius);
+  padding: var(--theme-spacing-small) var(--theme-spacing-medium);
+  font-family: var(--theme-font-primary);
+  font-size: var(--theme-font-size-medium);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.theme-button-primary:hover {
+  background: var(--theme-secondary);
+  transform: translateY(-1px);
+}
+
+.theme-button-secondary {
+  background: transparent;
+  color: var(--theme-text);
+  border: 1px solid var(--theme-border);
+  border-radius: var(--theme-border-radius);
+  padding: var(--theme-spacing-small) var(--theme-spacing-medium);
+  font-family: var(--theme-font-primary);
+  font-size: var(--theme-font-size-medium);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.theme-button-secondary:hover {
+  background: var(--theme-surface);
+  border-color: var(--theme-primary);
+}
+
+.theme-input {
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
+  border-radius: var(--theme-border-radius);
+  color: var(--theme-text);
+  font-family: var(--theme-font-primary);
+  font-size: var(--theme-font-size-medium);
+  padding: var(--theme-spacing-small);
+  transition: all 0.3s ease;
+}
+
+.theme-input:focus {
+  outline: none;
+  border-color: var(--theme-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.theme-text-primary {
+  color: var(--theme-text);
+  font-family: var(--theme-font-primary);
+}
+
+.theme-text-secondary {
+  color: var(--theme-text-secondary);
+  font-family: var(--theme-font-primary);
+}
+
+.theme-link {
+  color: var(--theme-primary);
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.theme-link:hover {
+  color: var(--theme-secondary);
+  text-decoration: underline;
+}
+
+/* Profile-specific theme styles */
+.profile-container {
+  background: var(--theme-background);
+  min-height: 100vh;
+  color: var(--theme-text);
+  font-family: var(--theme-font-primary);
+}
+
+.profile-header {
+  background: var(--theme-surface);
+  border-bottom: 1px solid var(--theme-border);
+  padding: var(--theme-spacing-large);
+}
+
+.profile-card {
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
+  border-radius: var(--theme-border-radius);
+  box-shadow: 0 1px 3px var(--theme-shadow);
+  padding: var(--theme-spacing-large);
+  margin: var(--theme-spacing-medium);
+  transition: all 0.3s ease;
+}
+
+.profile-card:hover {
+  box-shadow: 0 4px 12px var(--theme-shadow);
+}
+
+.profile-avatar {
+  border-radius: 50%;
+  border: 3px solid var(--theme-border);
+  transition: all 0.3s ease;
+}
+
+.profile-avatar:hover {
+  border-color: var(--theme-primary);
+  transform: scale(1.05);
+}
+
+.profile-link {
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
+  border-radius: var(--theme-border-radius);
+  padding: var(--theme-spacing-medium);
+  margin: var(--theme-spacing-small) 0;
+  text-decoration: none;
+  color: var(--theme-text);
+  display: block;
+  transition: all 0.3s ease;
+}
+
+.profile-link:hover {
+  background: var(--theme-primary);
+  color: white;
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px var(--theme-shadow);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .profile-card {
+    margin: var(--theme-spacing-small);
+    padding: var(--theme-spacing-medium);
+  }
+  
+  .profile-header {
+    padding: var(--theme-spacing-medium);
+  }
+}
+
+/* Animation utilities */
+.theme-fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.theme-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Dark theme specific adjustments */
+.theme-dark .profile-card {
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+.theme-dark .profile-link {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(51, 65, 85, 0.8);
+}
+
+.theme-dark .profile-link:hover {
+  background: var(--theme-primary);
+  border-color: var(--theme-primary);
+}
+
+/* Colorful theme specific adjustments */
+.theme-colorful .profile-container {
+  background: var(--theme-background);
+}
+
+.theme-colorful .profile-card {
+  background: var(--theme-surface);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.theme-colorful .profile-link {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(5px);
+}
+
+.theme-colorful .profile-link:hover {
+  background: var(--theme-primary);
+  border-color: var(--theme-primary);
+  transform: translateX(4px) scale(1.02);
+}

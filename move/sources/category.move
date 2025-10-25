@@ -14,8 +14,6 @@ public struct Category has key, store {
     created_at: u64,
 }
 
-// CategoryRegistry removed - not used in current implementation
-
 // ========= EVENTS =========
 
 public struct CategoryCreated has copy, drop {
@@ -35,6 +33,60 @@ public struct LinkRemovedFromCategory has copy, drop {
     category_id: ID,
     link_id: String,
     timestamp: u64,
+}
+
+// ========= HELPER FUNCTIONS =========
+
+fun find_link_in_category(link_ids: &vector<String>, link_id: String): (bool, u64) {
+    let mut i = 0;
+    let len = vector::length(link_ids);
+    
+    while (i < len) {
+        let current_link_id = *vector::borrow(link_ids, i);
+        if (current_link_id == link_id) {
+            return (true, i)
+        };
+        i = i + 1;
+    };
+    
+    (false, 0)
+}
+
+fun remove_link_by_index(link_ids: &mut vector<String>, index: u64): String {
+    vector::remove(link_ids, index)
+}
+
+fun add_multiple_links_helper(
+    category_links: &mut vector<String>,
+    link_ids: &vector<String>
+) {
+    let mut i = 0;
+    let len = vector::length(link_ids);
+    
+    while (i < len) {
+        let link_id = *vector::borrow(link_ids, i);
+        vector::push_back(category_links, link_id);
+        i = i + 1;
+    };
+}
+
+fun remove_multiple_links_helper(
+    category_links: &mut vector<String>,
+    link_ids_to_remove: &vector<String>
+) {
+    let mut i = 0;
+    let len = vector::length(link_ids_to_remove);
+    
+    while (i < len) {
+        let link_id_to_remove = *vector::borrow(link_ids_to_remove, i);
+        let (found, index) = find_link_in_category(category_links, link_id_to_remove);
+        
+        if (found) {
+            vector::remove(category_links, index);
+        };
+        
+        i = i + 1;
+    };
 }
 
 // ========= FUNCTIONS =========
@@ -87,24 +139,18 @@ public fun remove_link_from_category(
     ctx: &mut TxContext
 ) {
     let link_ids = &mut category.link_ids;
-    let len = vector::length(link_ids);
-    let mut i = 0;
+    let (found, index) = find_link_in_category(link_ids, link_id);
     
-    while (i < len) {
-        let current_link_id = *vector::borrow(link_ids, i);
-        if (current_link_id == link_id) {
-            vector::remove(link_ids, i);
-            break
-        };
-        i = i + 1;
+    if (found) {
+        remove_link_by_index(link_ids, index);
+        
+        // Emit LinkRemovedFromCategory event
+        event::emit(LinkRemovedFromCategory {
+            category_id: object::id(category),
+            link_id,
+            timestamp: ctx.epoch_timestamp_ms(),
+        });
     };
-    
-    // Emit LinkRemovedFromCategory event
-    event::emit(LinkRemovedFromCategory {
-        category_id: object::id(category),
-        link_id,
-        timestamp: ctx.epoch_timestamp_ms(),
-    });
 }
 
 public fun update_category_clicks(
@@ -148,14 +194,7 @@ public fun add_multiple_links_to_category(
     link_ids: vector<String>,
     _ctx: &mut TxContext
 ) {
-    let mut i = 0;
-    let len = vector::length(&link_ids);
-    
-    while (i < len) {
-        let link_id = *vector::borrow(&link_ids, i);
-        vector::push_back(&mut category.link_ids, link_id);
-        i = i + 1;
-    };
+    add_multiple_links_helper(&mut category.link_ids, &link_ids);
 }
 
 public fun remove_multiple_links_from_category(
@@ -163,26 +202,7 @@ public fun remove_multiple_links_from_category(
     link_ids_to_remove: vector<String>,
     _ctx: &mut TxContext
 ) {
-    let mut i = 0;
-    let len = vector::length(&link_ids_to_remove);
-    
-    while (i < len) {
-        let link_id_to_remove = *vector::borrow(&link_ids_to_remove, i);
-        let category_links = &mut category.link_ids;
-        let mut j = 0;
-        let category_len = vector::length(category_links);
-        
-        while (j < category_len) {
-            let current_link_id = *vector::borrow(category_links, j);
-            if (current_link_id == link_id_to_remove) {
-                vector::remove(category_links, j);
-                break
-            };
-            j = j + 1;
-        };
-        
-        i = i + 1;
-    };
+    remove_multiple_links_helper(&mut category.link_ids, &link_ids_to_remove);
 }
 
 // ========= TEST FUNCTIONS =========

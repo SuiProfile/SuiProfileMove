@@ -9,7 +9,7 @@ use sui::table::{Self, Table};
 public struct LinkStatistics has key, store {
     id: UID,
     profile_id: ID,          // Hangi profile ait
-    link_clicks: Table<String, u64>, // link_id -> click_count
+    link_clicks: Table<ID, u64>, // link_id -> click_count
     category_clicks: Table<String, u64>, // category -> total_clicks
     total_profile_clicks: u64,
     last_updated: u64,
@@ -19,7 +19,7 @@ public struct LinkStatistics has key, store {
 
 public struct ClickTracked has copy, drop {
     profile_id: ID,
-    link_id: String,
+    link_id: ID,
     category: String,
     new_count: u64,
     timestamp: u64,
@@ -29,6 +29,46 @@ public struct StatisticsCreated has copy, drop {
     statistics_id: ID,
     profile_id: ID,
     timestamp: u64,
+}
+
+// ========= HELPER FUNCTIONS =========
+
+fun increment_link_clicks(
+    table: &mut Table<ID, u64>,
+    link_id: ID,
+    increment: u64
+) {
+    let current_value = if (table::contains(table, link_id)) {
+        *table::borrow(table, link_id)
+    } else {
+        0
+    };
+    let new_value = current_value + increment;
+    
+    if (table::contains(table, link_id)) {
+        *table::borrow_mut(table, link_id) = new_value;
+    } else {
+        table::add(table, link_id, new_value);
+    };
+}
+
+fun increment_category_clicks(
+    table: &mut Table<String, u64>,
+    category: String,
+    increment: u64
+) {
+    let current_value = if (table::contains(table, category)) {
+        *table::borrow(table, category)
+    } else {
+        0
+    };
+    let new_value = current_value + increment;
+    
+    if (table::contains(table, category)) {
+        *table::borrow_mut(table, category) = new_value;
+    } else {
+        table::add(table, category, new_value);
+    };
 }
 
 // ========= FUNCTIONS =========
@@ -60,37 +100,15 @@ public fun create_statistics(
 
 public fun track_click(
     stats: &mut LinkStatistics,
-    link_id: String,
+    link_id: ID,
     category: String,
     ctx: &mut TxContext
 ) {
     // Update link clicks
-    let current_link_clicks = if (table::contains(&stats.link_clicks, link_id)) {
-        *table::borrow(&stats.link_clicks, link_id)
-    } else {
-        0
-    };
-    let new_link_clicks = current_link_clicks + 1;
-    
-    if (table::contains(&stats.link_clicks, link_id)) {
-        *table::borrow_mut(&mut stats.link_clicks, link_id) = new_link_clicks;
-    } else {
-        table::add(&mut stats.link_clicks, link_id, new_link_clicks);
-    };
+    increment_link_clicks(&mut stats.link_clicks, link_id, 1);
     
     // Update category clicks
-    let current_category_clicks = if (table::contains(&stats.category_clicks, category)) {
-        *table::borrow(&stats.category_clicks, category)
-    } else {
-        0
-    };
-    let new_category_clicks = current_category_clicks + 1;
-    
-    if (table::contains(&stats.category_clicks, category)) {
-        *table::borrow_mut(&mut stats.category_clicks, category) = new_category_clicks;
-    } else {
-        table::add(&mut stats.category_clicks, category, new_category_clicks);
-    };
+    increment_category_clicks(&mut stats.category_clicks, category, 1);
     
     // Update total profile clicks
     stats.total_profile_clicks = stats.total_profile_clicks + 1;
@@ -101,7 +119,11 @@ public fun track_click(
         profile_id: stats.profile_id,
         link_id,
         category,
-        new_count: new_link_clicks,
+        new_count: if (table::contains(&stats.link_clicks, link_id)) {
+            *table::borrow(&stats.link_clicks, link_id)
+        } else {
+            0
+        },
         timestamp: stats.last_updated,
     });
 }
@@ -110,7 +132,7 @@ public fun track_click(
 
 public fun get_link_stats(
     stats: &LinkStatistics,
-    link_id: String
+    link_id: ID
 ): u64 {
     if (table::contains(&stats.link_clicks, link_id)) {
         *table::borrow(&stats.link_clicks, link_id)
@@ -142,7 +164,7 @@ public fun get_last_updated(stats: &LinkStatistics): u64 {
 
 public fun batch_update_link_clicks(
     stats: &mut LinkStatistics,
-    link_ids: vector<String>,
+    link_ids: vector<ID>,
     click_counts: vector<u64>,
     ctx: &mut TxContext
 ) {
@@ -153,12 +175,7 @@ public fun batch_update_link_clicks(
         let link_id = *vector::borrow(&link_ids, i);
         let click_count = *vector::borrow(&click_counts, i);
         
-        if (table::contains(&stats.link_clicks, link_id)) {
-            let current_clicks = *table::borrow(&stats.link_clicks, link_id);
-            *table::borrow_mut(&mut stats.link_clicks, link_id) = current_clicks + click_count;
-        } else {
-            table::add(&mut stats.link_clicks, link_id, click_count);
-        };
+        increment_link_clicks(&mut stats.link_clicks, link_id, click_count);
         
         i = i + 1;
     };
@@ -179,12 +196,7 @@ public fun batch_update_category_clicks(
         let category = *vector::borrow(&categories, i);
         let click_count = *vector::borrow(&click_counts, i);
         
-        if (table::contains(&stats.category_clicks, category)) {
-            let current_clicks = *table::borrow(&stats.category_clicks, category);
-            *table::borrow_mut(&mut stats.category_clicks, category) = current_clicks + click_count;
-        } else {
-            table::add(&mut stats.category_clicks, category, click_count);
-        };
+        increment_category_clicks(&mut stats.category_clicks, category, click_count);
         
         i = i + 1;
     };

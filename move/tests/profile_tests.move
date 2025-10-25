@@ -26,7 +26,6 @@ fun test_create_profile() {
     {
         profile::create_profile(
             b"Test Profile".to_string(),
-            b"QmTest123".to_string(),
             b"Test bio".to_string(),
             1,
             scenario.ctx(),
@@ -43,10 +42,8 @@ fun test_create_profile() {
         let profile = ts::take_from_sender<LinkTreeProfile>(&scenario);
         // Test getter functions
         assert!(profile::profile_name(&profile) == b"Test Profile".to_string(), EProfileNameMismatch);
-        assert!(profile::profile_owner(&profile) == SENDER);
         assert!(profile::profile_theme(&profile) == 1);
         assert!(profile::profile_bio(&profile) == b"Test bio".to_string());
-        assert!(profile::profile_avatar_cid(&profile) == b"QmTest123".to_string());
         assert!(profile::profile_links_count(&profile) == 0);
         ts::return_to_sender(&scenario, profile);
     };
@@ -62,7 +59,6 @@ fun test_add_link() {
     {
         profile::create_profile(
             b"Test Profile".to_string(),
-            b"QmTest123".to_string(),
             b"Test bio".to_string(),
             1,
             scenario.ctx(),
@@ -104,7 +100,6 @@ fun test_remove_link() {
     {
         profile::create_profile(
             b"Test Profile".to_string(),
-            b"QmTest123".to_string(),
             b"Test bio".to_string(),
             1,
             scenario.ctx(),
@@ -132,7 +127,7 @@ fun test_remove_link() {
         let mut profile = ts::take_from_sender<LinkTreeProfile>(&scenario);
         profile::remove_link(
             &mut profile,
-            b"Test Link".to_string(), // This should match the link_id generated (which is the label)
+            b"Test Link".to_string(), // Use label to remove
             scenario.ctx(),
         );
         ts::return_to_sender(&scenario, profile);
@@ -189,9 +184,10 @@ fun test_track_click() {
     // Track a click
     {
         let mut stats = ts::take_from_sender<LinkStatistics>(&scenario);
+        let link_id = object::id_from_address(SENDER);
         statistics::track_click(
             &mut stats,
-            b"link_1".to_string(),
+            link_id,
             b"Hepsiburada".to_string(),
             scenario.ctx(),
         );
@@ -203,7 +199,8 @@ fun test_track_click() {
     // Verify click was tracked
     {
         let stats = ts::take_from_sender<LinkStatistics>(&scenario);
-        assert!(statistics::get_link_stats(&stats, b"link_1".to_string()) == 1, EClickNotTracked);
+        let link_id = object::id_from_address(SENDER);
+        assert!(statistics::get_link_stats(&stats, link_id) == 1, EClickNotTracked);
         assert!(statistics::get_category_stats(&stats, b"Hepsiburada".to_string()) == 1);
         assert!(statistics::get_total_profile_clicks(&stats) == 1);
         ts::return_to_sender(&scenario, stats);

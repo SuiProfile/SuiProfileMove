@@ -1,0 +1,663 @@
+cat > test-ui.html << 'EOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Walrus LinkTree - Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+        }
+        .section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover:not(:disabled) {
+            background: #5568d3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: none;
+        }
+        .result.show { display: block; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .wallet-status {
+            text-align: center;
+            padding: 15px;
+            background: #e7f3ff;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .wallet-status.connected {
+            background: #d4edda;
+        }
+        .help-text {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 3px;
+        }
+        code {
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+            word-break: break-all;
+            display: inline-block;
+            max-width: 100%;
+        }
+        .step-number {
+            display: inline-block;
+            width: 26px;
+            height: 26px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 26px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .debug {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🦭 Walrus LinkTree</h1>
+        <div class="subtitle">Testnet Demo</div>
+        
+        <div class="wallet-status" id="walletStatus">
+            <div id="walletText">🔍 Checking for wallet...</div>
+            <button onclick="connectWallet()" id="connectBtn" style="margin-top: 10px; width: auto; padding: 8px 20px;">
+                Connect Wallet
+            </button>
+        </div>
+
+        <!-- Step 1 -->
+        <div class="section">
+            <h3><span class="step-number">1</span>Register Username</h3>
+            <div class="form-group">
+                <label>Username (lowercase only)</label>
+                <input type="text" id="username" placeholder="myusername" />
+                <div class="help-text">Choose your unique username</div>
+            </div>
+            <button onclick="registerUsername()" id="btnRegister" disabled>Register Username</button>
+            <div class="result" id="result1"></div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="section">
+            <h3><span class="step-number">2</span>Create Profile</h3>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="username2" placeholder="myusername" />
+            </div>
+            <div class="form-group">
+                <label>Avatar CID</label>
+                <input type="text" id="avatar" placeholder="QmAvatarCID123" value="QmTestAvatar" />
+            </div>
+            <div class="form-group">
+                <label>Bio</label>
+                <textarea id="bio" rows="3" placeholder="About you...">Web3 developer on Sui</textarea>
+            </div>
+            <div class="form-group">
+                <label>Theme</label>
+                <select id="theme">
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                    <option value="blue">Blue</option>
+                </select>
+            </div>
+            <button onclick="createProfile()" id="btnCreate" disabled>Create Profile</button>
+            <div class="result" id="result2"></div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="section">
+            <h3><span class="step-number">3</span>Add Link</h3>
+            <div class="form-group">
+                <label>Profile Object ID</label>
+                <input type="text" id="profileId" placeholder="0x..." />
+                <div class="help-text">Copy from step 2 result</div>
+            </div>
+            <div class="form-group">
+                <label>Link Label</label>
+                <input type="text" id="linkLabel" placeholder="Twitter" />
+            </div>
+            <div class="form-group">
+                <label>Link URL</label>
+                <input type="text" id="linkUrl" placeholder="https://twitter.com/..." />
+            </div>
+            <button onclick="addLink()" id="btnAddLink" disabled>Add Link</button>
+            <div class="result" id="result3"></div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="section">
+            <h3><span class="step-number">4</span>View Profile</h3>
+            <div class="form-group">
+                <label>Profile Object ID</label>
+                <input type="text" id="viewProfileId" placeholder="0x..." />
+            </div>
+            <button onclick="viewProfile()" id="btnView">View Profile</button>
+            <div class="result" id="result4"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { SuiClient } from 'https://esm.sh/@mysten/sui@1.0.0/client';
+        import { Transaction } from 'https://esm.sh/@mysten/sui@1.0.0/transactions';
+        import { Ed25519Keypair } from 'https://esm.sh/@mysten/sui@1.0.0/keypairs/ed25519';
+
+        const PACKAGE_ID = '0x407e8f3ce8d1a4237c72bd6d049acada7efd6ed985640d97a625d1cb53401310';
+        const REGISTRY_ID = '0xda2c6b3e1f96016df661e9d2bec7ab3b89b6c070fc03e784ed42b04b694d6f14';
+        const CLOCK_ID = '0x6';
+
+        let wallet = null;
+        let walletAddress = null;
+        let localWallet = null; // { address, publicKey, keypair }
+        const LOCAL_WALLET_STORAGE_KEY = 'sui_wallet';
+        const client = new SuiClient({ url: 'https://fullnode.testnet.sui.io:443' });
+
+        // Check which wallet is available
+        function detectWallet() {
+            const walletText = document.getElementById('walletText');
+            const connectBtn = document.getElementById('connectBtn');
+            
+            // Check for different wallet types
+            if (window.suiWallet) {
+                walletText.innerHTML = '✅ Sui Wallet detected (Legacy API)';
+                wallet = window.suiWallet;
+                return 'suiWallet';
+            } else if (window.sui) {
+                walletText.innerHTML = '✅ Sui Wallet detected (Standard API)';
+                wallet = window.sui;
+                return 'sui';
+            } else {
+                // Try restore local wallet
+                try {
+                    const saved = localStorage.getItem(LOCAL_WALLET_STORAGE_KEY);
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        const keypair = Ed25519Keypair.fromSecretKey(new Uint8Array(parsed.secretKey));
+                        localWallet = {
+                            address: parsed.address,
+                            publicKey: parsed.publicKey,
+                            keypair,
+                        };
+                        walletAddress = parsed.address;
+                        walletText.innerHTML = '✅ Local Wallet restored';
+                        connectBtn.textContent = 'Connected';
+                        connectBtn.disabled = true;
+                        // Enable buttons
+                        document.getElementById('btnRegister').disabled = false;
+                        document.getElementById('btnCreate').disabled = false;
+                        document.getElementById('btnAddLink').disabled = false;
+                        return 'local';
+                    }
+                } catch (e) {
+                    console.warn('Local wallet restore failed:', e);
+                }
+
+                walletText.innerHTML = '❌ No Sui Wallet found<br><small>You can use Local Wallet fallback</small>';
+                connectBtn.textContent = 'Use Local Wallet';
+                connectBtn.onclick = () => {
+                    // Fallback creation handled in connectWallet
+                    window.connectWallet();
+                };
+                return null;
+            }
+        }
+
+        async function createLocalWallet() {
+            const keypair = new Ed25519Keypair();
+            const address = keypair.getPublicKey().toSuiAddress();
+            const publicKey = keypair.getPublicKey().toBase64();
+            localWallet = { address, publicKey, keypair };
+            walletAddress = address;
+            localStorage.setItem(LOCAL_WALLET_STORAGE_KEY, JSON.stringify({
+                address,
+                publicKey,
+                secretKey: Array.from(keypair.getSecretKey()),
+            }));
+        }
+
+        async function signAndExecuteTx(tx, options = { showEffects: true, showObjectChanges: true }) {
+            if (window.suiWallet) {
+                return await window.suiWallet.signAndExecuteTransactionBlock({
+                    transactionBlock: tx,
+                    options,
+                });
+            }
+            if (window.sui) {
+                return await window.sui.signAndExecuteTransactionBlock({
+                    transactionBlock: tx,
+                    options,
+                });
+            }
+            if (localWallet) {
+                return await client.signAndExecuteTransaction({
+                    signer: localWallet.keypair,
+                    transaction: tx,
+                    options,
+                });
+            }
+            throw new Error('No wallet available to sign');
+        }
+
+        window.connectWallet = async function() {
+            const walletType = detectWallet();
+            
+            if (!walletType) {
+                try {
+                    showResult('result1', '⏳ Creating Local Wallet...', 'info');
+                    await createLocalWallet();
+                    const walletStatus = document.getElementById('walletStatus');
+                    walletStatus.className = 'wallet-status connected';
+                    walletStatus.innerHTML = `
+                        <div style="color: #28a745; font-weight: bold;">✅ Local Wallet Connected</div>
+                        <code style="margin-top: 5px;">${walletAddress.slice(0, 10)}...${walletAddress.slice(-8)}</code>
+                    `;
+                    document.getElementById('btnRegister').disabled = false;
+                    document.getElementById('btnCreate').disabled = false;
+                    document.getElementById('btnAddLink').disabled = false;
+                    showResult('result1', '✅ Ready! Local Wallet is active', 'success');
+                } catch (e) {
+                    console.error('Local wallet create error:', e);
+                    showResult('result1', '❌ Failed to create Local Wallet', 'error');
+                }
+                return;
+            }
+
+            try {
+                const walletStatus = document.getElementById('walletStatus');
+                const connectBtn = document.getElementById('connectBtn');
+                
+                showResult('result1', '⏳ Connecting to wallet...', 'info');
+
+                let accounts;
+                
+                if (walletType === 'suiWallet') {
+                    // Legacy API
+                    const result = await wallet.connect();
+                    accounts = result.accounts || result;
+                    walletAddress = accounts[0]?.address || accounts[0];
+                } else if (walletType === 'sui') {
+                    // Standard API
+                    const result = await wallet.requestPermissions();
+                    accounts = result.accounts || result;
+                    walletAddress = accounts[0]?.address || accounts[0];
+                }
+
+                if (walletAddress) {
+                    walletStatus.className = 'wallet-status connected';
+                    walletStatus.innerHTML = `
+                        <div style="color: #28a745; font-weight: bold;">✅ Wallet Connected</div>
+                        <code style="margin-top: 5px;">${walletAddress.slice(0, 10)}...${walletAddress.slice(-8)}</code>
+                    `;
+                    
+                    // Enable buttons
+                    document.getElementById('btnRegister').disabled = false;
+                    document.getElementById('btnCreate').disabled = false;
+                    document.getElementById('btnAddLink').disabled = false;
+                    
+                    showResult('result1', '✅ Ready! Start with Step 1', 'success');
+                } else {
+                    throw new Error('Failed to get wallet address');
+                }
+            } catch (error) {
+                console.error('Connection error:', error);
+                showResult('result1', '❌ Connection failed: ' + error.message, 'error');
+            }
+        };
+
+        window.registerUsername = async function() {
+            const username = document.getElementById('username').value.toLowerCase().trim();
+            
+            if (!username) {
+                showResult('result1', '❌ Please enter username', 'error');
+                return;
+            }
+            if (!walletAddress) {
+                showResult('result1', '❌ Please connect wallet first', 'error');
+                return;
+            }
+
+            try {
+                const btn = document.getElementById('btnRegister');
+                btn.disabled = true;
+                btn.textContent = 'Registering...';
+                
+                showResult('result1', '⏳ Creating transaction...', 'info');
+
+                const tx = new Transaction();
+                tx.moveCall({
+                    target: `${PACKAGE_ID}::profile::register_username`,
+                    arguments: [
+                        tx.object(REGISTRY_ID),
+                        tx.pure.string(username),
+                    ],
+                });
+
+                showResult('result1', '⏳ Please confirm in wallet...', 'info');
+
+                const result = await signAndExecuteTx(tx, { showEffects: true });
+
+                if (result.effects?.status?.status === 'success') {
+                    showResult('result1', `✅ Success! Username "${username}" registered.<br>Digest: <code>${result.digest}</code>`, 'success');
+                    document.getElementById('username2').value = username;
+                } else {
+                    showResult('result1', '❌ Transaction failed', 'error');
+                }
+
+                btn.disabled = false;
+                btn.textContent = 'Register Username';
+            } catch (error) {
+                console.error('Register error:', error);
+                showResult('result1', '❌ Error: ' + error.message, 'error');
+                document.getElementById('btnRegister').disabled = false;
+                document.getElementById('btnRegister').textContent = 'Register Username';
+            }
+        };
+
+        window.createProfile = async function() {
+            const username = document.getElementById('username2').value.toLowerCase().trim();
+            const avatar = document.getElementById('avatar').value.trim();
+            const bio = document.getElementById('bio').value.trim();
+            const theme = document.getElementById('theme').value;
+
+            if (!username || !avatar || !bio) {
+                showResult('result2', '❌ Please fill all fields', 'error');
+                return;
+            }
+            if (!walletAddress) {
+                showResult('result2', '❌ Please connect wallet first', 'error');
+                return;
+            }
+
+            try {
+                const btn = document.getElementById('btnCreate');
+                btn.disabled = true;
+                btn.textContent = 'Creating...';
+                
+                showResult('result2', '⏳ Creating profile...', 'info');
+
+                const tx = new Transaction();
+                tx.moveCall({
+                    target: `${PACKAGE_ID}::profile::create_profile`,
+                    arguments: [
+                        tx.object(REGISTRY_ID),
+                        tx.pure.string(username),
+                        tx.pure.string(avatar),
+                        tx.pure.string(bio),
+                        tx.pure.string(theme),
+                        tx.pure.bool(false),
+                        tx.pure.string(''),
+                        tx.object(CLOCK_ID),
+                    ],
+                });
+
+                showResult('result2', '⏳ Please confirm in wallet...', 'info');
+
+                const result = await signAndExecuteTx(tx, { showEffects: true, showObjectChanges: true });
+
+                if (result.effects?.status?.status === 'success') {
+                    const profileObj = result.objectChanges?.find(
+                        obj => obj.type === 'created' && obj.objectType?.includes('LinkTreeProfile')
+                    );
+                    
+                    const profileId = profileObj?.objectId || 'Check explorer';
+                    
+                    showResult('result2', 
+                        `✅ Profile created!<br><strong>Profile ID:</strong><br><code>${profileId}</code><br>Digest: <code>${result.digest}</code>`, 
+                        'success'
+                    );
+                    
+                    if (profileObj) {
+                        document.getElementById('profileId').value = profileId;
+                        document.getElementById('viewProfileId').value = profileId;
+                    }
+                } else {
+                    showResult('result2', '❌ Transaction failed', 'error');
+                }
+
+                btn.disabled = false;
+                btn.textContent = 'Create Profile';
+            } catch (error) {
+                console.error('Create error:', error);
+                showResult('result2', '❌ Error: ' + error.message, 'error');
+                document.getElementById('btnCreate').disabled = false;
+                document.getElementById('btnCreate').textContent = 'Create Profile';
+            }
+        };
+
+        window.addLink = async function() {
+            const profileId = document.getElementById('profileId').value.trim();
+            const label = document.getElementById('linkLabel').value.trim();
+            const url = document.getElementById('linkUrl').value.trim();
+
+            if (!profileId || !label || !url) {
+                showResult('result3', '❌ Please fill all fields', 'error');
+                return;
+            }
+            if (!walletAddress) {
+                showResult('result3', '❌ Please connect wallet first', 'error');
+                return;
+            }
+
+            try {
+                const btn = document.getElementById('btnAddLink');
+                btn.disabled = true;
+                btn.textContent = 'Adding...';
+                
+                showResult('result3', '⏳ Adding link...', 'info');
+
+                const tx = new Transaction();
+                tx.moveCall({
+                    target: `${PACKAGE_ID}::profile::add_link`,
+                    arguments: [
+                        tx.object(REGISTRY_ID),
+                        tx.object(profileId),
+                        tx.pure.string(label),
+                        tx.pure.string(url),
+                    ],
+                });
+
+                const result = await signAndExecuteTx(tx, { showEffects: true });
+
+                if (result.effects?.status?.status === 'success') {
+                    showResult('result3', 
+                        `✅ Link added!<br>Label: <strong>${label}</strong><br>Digest: <code>${result.digest}</code>`, 
+                        'success'
+                    );
+                    document.getElementById('linkLabel').value = '';
+                    document.getElementById('linkUrl').value = '';
+                } else {
+                    showResult('result3', '❌ Transaction failed', 'error');
+                }
+
+                btn.disabled = false;
+                btn.textContent = 'Add Link';
+            } catch (error) {
+                console.error('Add link error:', error);
+                showResult('result3', '❌ Error: ' + error.message, 'error');
+                document.getElementById('btnAddLink').disabled = false;
+                document.getElementById('btnAddLink').textContent = 'Add Link';
+            }
+        };
+
+        window.viewProfile = async function() {
+            const profileId = document.getElementById('viewProfileId').value.trim();
+
+            if (!profileId) {
+                showResult('result4', '❌ Please enter profile ID', 'error');
+                return;
+            }
+
+            try {
+                const btn = document.getElementById('btnView');
+                btn.disabled = true;
+                btn.textContent = 'Loading...';
+                
+                showResult('result4', '⏳ Fetching profile...', 'info');
+
+                const object = await client.getObject({
+                    id: profileId,
+                    options: { showContent: true },
+                });
+
+                if (object.data?.content?.dataType === 'moveObject') {
+                    const fields = object.data.content.fields;
+                    
+                    let linksHtml = '<div style="margin-top: 10px;"><strong>Links:</strong></div>';
+                    if (fields.links?.fields?.contents) {
+                        fields.links.fields.contents.forEach(link => {
+                            linksHtml += `<div style="padding: 8px; background: white; margin: 5px 0; border-radius: 4px;"><strong>${link.fields.key}:</strong> ${link.fields.value}</div>`;
+                        });
+                    } else {
+                        linksHtml += '<div>No links yet</div>';
+                    }
+
+                    showResult('result4', `
+                        <div style="text-align: left;">
+                            <strong>Slug:</strong> ${fields.slug}<br>
+                            <strong>Username:</strong> ${fields.base_username}<br>
+                            <strong>Bio:</strong> ${fields.bio}<br>
+                            <strong>Theme:</strong> ${fields.theme}<br>
+                            <strong>Category:</strong> ${fields.is_category}<br>
+                            <strong>Created:</strong> ${new Date(parseInt(fields.created_at)).toLocaleString()}<br>
+                            ${linksHtml}
+                        </div>
+                    `, 'success');
+                } else {
+                    showResult('result4', '❌ Profile not found', 'error');
+                }
+
+                btn.disabled = false;
+                btn.textContent = 'View Profile';
+            } catch (error) {
+                console.error('View error:', error);
+                showResult('result4', '❌ Error: ' + error.message, 'error');
+                document.getElementById('btnView').disabled = false;
+                document.getElementById('btnView').textContent = 'View Profile';
+            }
+        };
+
+        function showResult(id, message, type) {
+            const el = document.getElementById(id);
+            el.className = `result ${type} show`;
+            el.innerHTML = message;
+        }
+
+        // Auto-detect wallet on load
+        setTimeout(() => {
+            const type = detectWallet();
+            if (!type) {
+                // try restore local wallet silently
+                try {
+                    const saved = localStorage.getItem(LOCAL_WALLET_STORAGE_KEY);
+                    if (saved && !localWallet) {
+                        const parsed = JSON.parse(saved);
+                        const keypair = Ed25519Keypair.fromSecretKey(new Uint8Array(parsed.secretKey));
+                        localWallet = { address: parsed.address, publicKey: parsed.publicKey, keypair };
+                        walletAddress = parsed.address;
+                        const walletStatus = document.getElementById('walletStatus');
+                        walletStatus.className = 'wallet-status connected';
+                        walletStatus.innerHTML = `
+                            <div style="color: #28a745; font-weight: bold;">✅ Local Wallet Connected</div>
+                            <code style="margin-top: 5px;">${walletAddress.slice(0, 10)}...${walletAddress.slice(-8)}</code>
+                        `;
+                        document.getElementById('btnRegister').disabled = false;
+                        document.getElementById('btnCreate').disabled = false;
+                        document.getElementById('btnAddLink').disabled = false;
+                    }
+                } catch {}
+            }
+        }, 500);
+    </script>
+</body>
+</html>
+EOF

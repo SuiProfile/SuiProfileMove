@@ -1,3 +1,4 @@
+#[allow(unused_use)]
 module sui_profile::profile {
     use std::string::String;
     use sui::clock::Clock;

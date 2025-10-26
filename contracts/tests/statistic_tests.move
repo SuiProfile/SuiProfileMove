@@ -1,6 +1,6 @@
 #[test_only]
-module walrus_linktree::statistics_tests {
-    use walrus_linktree::statistics::{Self, LinkStatistics, StatsRegistry};
+module sui_profile::statistics_tests {
+    use sui_profile::statistics::{Self, LinkStatistics, StatsRegistry};
     use sui::test_scenario::{Self as ts, Scenario};
     use sui::clock::{Self, Clock};
 
@@ -240,7 +240,7 @@ module walrus_linktree::statistics_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = walrus_linktree::statistics::ENotOwner)]
+    #[expected_failure(abort_code = sui_profile::statistics::ENotOwner)]
     fun test_reset_statistics_unauthorized_fails() {
         let (mut scenario, clock) = setup_test();
         
@@ -296,7 +296,7 @@ module walrus_linktree::statistics_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = walrus_linktree::statistics::ENotOwner)]
+    #[expected_failure(abort_code = sui_profile::statistics::ENotOwner)]
     fun test_increment_unique_visitor_unauthorized_fails() {
         let (mut scenario, clock) = setup_test();
         
@@ -322,7 +322,7 @@ module walrus_linktree::statistics_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = walrus_linktree::statistics::EStatsAlreadyExists)]
+    #[expected_failure(abort_code = sui_profile::statistics::EStatsAlreadyExists)]
     fun test_duplicate_statistics_fails() {
         let (mut scenario, clock) = setup_test();
         
@@ -423,7 +423,7 @@ module walrus_linktree::statistics_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = walrus_linktree::statistics::EStatsNotFound)]
+    #[expected_failure(abort_code = sui_profile::statistics::EStatsNotFound)]
     fun test_resolve_nonexistent_stats_fails() {
         let (mut scenario, clock) = setup_test();
         

@@ -1,136 +1,152 @@
-module walrus_linktree::profile {
+#[allow(unused_use)]
+module sui_profile::profile {
     use std::string::String;
     use sui::clock::Clock;
-    use sui::display;
     use sui::dynamic_field;
-    use sui::event;
-    use sui::package;
     use sui::vec_map::{Self, VecMap};
 
+    use sui_profile::types::{
+        Self, LinkTreeProfile, Registry, UsernameOwner, UserProfilesKey, 
+        get_registry_id_mut, new_profile, new_username_owner, new_slug_key, 
+        new_user_profiles_key, get_profile_id, set_bio, set_avatar_cid, 
+        set_theme, transfer_profile, share_registry
+    };
+    use sui_profile::events::{emit_profile_created, emit_profile_updated};
+    use sui_profile::constants::{get_e_not_owner, get_e_username_not_registered, get_e_not_username_owner, get_e_slug_already_taken};
+    use sui_profile::utils::build_full_slug;
+    use sui_profile::registry::{Self};
+    use sui_profile::links::{Self};
 
-    /// Ana profil objesi
-    public struct LinkTreeProfile has key, store {
-        id: UID,                      // Sui blockchain'deki benzersiz nesne ID'si
-        owner: address,               // Profil sahibinin wallet adresi
-        slug: String,                 // URL'de kullanılan benzersiz isim (örn: "myusername" veya "myusername-shopping")
-        base_username: String,        // Kök kullanıcı adı, slug'dan çıkarılır (örn: "myusername")
-        avatar_cid: String,           // Walrus'ta saklanan profil resminin CID'si
-        bio: String,                  // Profil açıklaması/biyografi metni
-        links: VecMap<String, String>, // Link listesi (Label → URL eşlemeleri, örn: "Twitter" → "https://twitter.com/...")
-        theme: String,                // Tema seçimi (örn: "dark", "light", "blue")
-        is_category: bool,            // Ana profil mi (false) yoksa kategori profili mi (true)?
-        parent_slug: String,          // Eğer kategori ise hangi ana profilin altında (örn: "myusername")
-        created_at: u64,             // Profil oluşturulma zamanı (timestamp, milisaniye)
-    
-    }
 
-    /// Registry
-    public struct Registry has key {
-        id: UID,
-    }
-
-    /// Username ownership key
-    public struct UsernameOwner has copy, drop, store {
-        username: String,
-    }
-
-    /// Slug mapping key
-    public struct SlugKey has copy, drop, store {
-        slug: String,
-    }
-
-    /// OTW
-    public struct PROFILE has drop {}
-
-    /// Events
-    public struct UsernameRegistered has copy, drop {
-        username: String,
-        owner: address,
-    }
-
-    public struct ProfileCreated has copy, drop {
-        profile_id: address,
-        owner: address,
-        slug: String,
-        is_category: bool,
-    }
-
-    public struct ProfileUpdated has copy, drop {
-        profile_id: address,
-    }
-
-    public struct LinkAdded has copy, drop {
-        profile_id: address,
-        label: String,
-    }
-
-    /// Error codes
-    const ENotOwner: u64 = 0;
-    const ELinkNotFound: u64 = 1;
-    const EUsernameAlreadyTaken: u64 = 2;
-    const ESlugAlreadyTaken: u64 = 3;
-    const ENotUsernameOwner: u64 = 4;
-    const EUsernameNotRegistered: u64 = 6;
-
-    /// Init
-    fun init(otw: PROFILE, ctx: &mut TxContext) {
-        let publisher = package::claim(otw, ctx);
-        let mut display = display::new<LinkTreeProfile>(&publisher, ctx);
-
-        display.add(
-            b"link".to_string(),
-            b"https://yourname.trwal.app/{slug}".to_string(),
-        );
-        
-        display.add(
-            b"name".to_string(),
-            b"{base_username}".to_string(),
-        );
-
-        display.add(
-            b"description".to_string(),
-            b"{bio}".to_string(),
-        );
-        
-        display.add(
-            b"image_url".to_string(),
-            b"https://aggregator.walrus-testnet.walrus.space/v1/{avatar_cid}".to_string(),
-        );
-
-        display.update_version();
-        
-        transfer::public_transfer(publisher, ctx.sender());
-        transfer::public_transfer(display, ctx.sender());
-
-        let registry = Registry {
-            id: object::new(ctx),
-        };
-        transfer::share_object(registry);
-    }
-
-    /// Username claim
-    entry fun register_username(
+    // Re-export registry functions
+    public fun register_username(
         registry: &mut Registry,
         username: vector<u8>,
         ctx: &TxContext
     ) {
-        let username_str = username.to_string();
-        let key = UsernameOwner { username: username_str };
-
-        assert!(!dynamic_field::exists_(&registry.id, key), EUsernameAlreadyTaken);
-
-        dynamic_field::add(&mut registry.id, key, ctx.sender());
-
-        event::emit(UsernameRegistered {
-            username: username_str,
-            owner: ctx.sender(),
-        });
+        registry::register_username(registry, username, ctx);
     }
 
-    /// Profil oluştur
+    public fun resolve_slug(registry: &Registry, username: vector<u8>, slug: vector<u8>): address {
+        registry::resolve_slug(registry, username, slug)
+    }
+
+    public fun resolve_full_slug(registry: &Registry, full_slug: vector<u8>): address {
+        registry::resolve_full_slug(registry, full_slug)
+    }
+
+    public fun get_username_owner(registry: &Registry, username: vector<u8>): address {
+        registry::get_username_owner(registry, username)
+    }
+
+    public fun user_has_slug(registry: &Registry, owner: address, slug: vector<u8>): bool {
+        registry::user_has_slug(registry, owner, slug)
+    }
+
+    public fun get_user_profiles(registry: &Registry, owner: address): vector<address> {
+        registry::get_user_profiles(registry, owner)
+    }
+
+    public fun get_user_profile_count(registry: &Registry, owner: address): u64 {
+        registry::get_user_profile_count(registry, owner)
+    }
+
+    public fun user_has_profile(registry: &Registry, owner: address, profile_id: address): bool {
+        registry::user_has_profile(registry, owner, profile_id)
+    }
+
+    public fun usernames_count(registry: &Registry, owner: address): u64 {
+        registry::usernames_count(registry, owner)
+    }
+
+    public fun user_has_username(registry: &Registry, owner: address, username: vector<u8>): bool {
+        registry::user_has_username(registry, owner, username)
+    }
+
+    // Re-export link functions
+    public fun add_link(
+        registry: &Registry,
+        profile: &mut LinkTreeProfile,
+        label: vector<u8>,
+        url: vector<u8>,
+        ctx: &TxContext
+    ) {
+        links::add_link(registry, profile, label, url, ctx);
+    }
+
+    public fun remove_link(
+        profile: &mut LinkTreeProfile,
+        label: vector<u8>,
+        ctx: &TxContext
+    ) {
+        links::remove_link(profile, label, ctx);
+    }
+
+    public fun clear_links(
+        profile: &mut LinkTreeProfile,
+        ctx: &TxContext
+    ) {
+        links::clear_links(profile, ctx);
+    }
+
+    // Re-export getter functions
+    public fun get_owner(profile: &LinkTreeProfile): address {
+        types::get_owner(profile)
+    }
+
+    public fun get_slug(profile: &LinkTreeProfile): String {
+        types::get_slug(profile)
+    }
+
+    public fun get_base_username(profile: &LinkTreeProfile): String {
+        types::get_base_username(profile)
+    }
+
+    public fun get_bio(profile: &LinkTreeProfile): String {
+        types::get_bio(profile)
+    }
+
+    public fun get_avatar_cid(profile: &LinkTreeProfile): String {
+        types::get_avatar_cid(profile)
+    }
+
+    public fun get_theme(profile: &LinkTreeProfile): String {
+        types::get_theme(profile)
+    }
+
+    public fun get_links(profile: &LinkTreeProfile): &VecMap<String, String> {
+        types::get_links(profile)
+    }
+
+    public fun get_is_category(profile: &LinkTreeProfile): bool {
+        types::get_is_category(profile)
+    }
+
+    public fun get_parent_slug(profile: &LinkTreeProfile): String {
+        types::get_parent_slug(profile)
+    }
+
+    public fun get_created_at(profile: &LinkTreeProfile): u64 {
+        types::get_created_at(profile)
+    }
+
+    public fun get_link_count(profile: &LinkTreeProfile): u64 {
+        types::get_link_count(profile)
+    }
+
+    public fun get_link_url(profile: &LinkTreeProfile, label: vector<u8>): String {
+        types::get_link_url(profile, label)
+    }
+
+    public fun has_link(profile: &LinkTreeProfile, label: vector<u8>): bool {
+        types::has_link(profile, label)
+    }
+
+    /// Profil oluştur - Ana fonksiyon burada kalıyor
     entry fun create_profile(
         registry: &mut Registry,
-        slug: vector<u8>,
+        username: vector<u8>,        // Kullanıcının register ettiği username
+        slug: vector<u8>,             // Sadece slug kısmı (örn: "shopping-links")
         avatar_cid: vector<u8>,
         bio: vector<u8>,
         theme: vector<u8>,
@@ -139,87 +155,75 @@ module walrus_linktree::profile {
         clock: &Clock,
         ctx: &mut TxContext
     ) {
+        let username_str = username.to_string();
         let slug_str = slug.to_string();
-        let base_username = extract_base_username(&slug_str);
         
-        let username_key = UsernameOwner { username: base_username };
-        assert!(dynamic_field::exists_(&registry.id, username_key), EUsernameNotRegistered);
+        // 1. Kullanıcının bu username'e sahip olduğunu kontrol et
+        let username_key = new_username_owner(username_str);
+        let registry_id = get_registry_id_mut(registry);
+        assert!(dynamic_field::exists_(registry_id, username_key), get_e_username_not_registered());
         
         let username_owner = *dynamic_field::borrow<UsernameOwner, address>(
-            &registry.id, 
+            registry_id, 
             username_key
         );
-        assert!(username_owner == ctx.sender(), ENotUsernameOwner);
+        assert!(username_owner == ctx.sender(), get_e_not_username_owner());
 
-        let slug_key = SlugKey { slug: slug_str };
-        assert!(!dynamic_field::exists_(&registry.id, slug_key), ESlugAlreadyTaken);
+        // 2. Slug'ın bu kullanıcı için unique olduğunu kontrol et
+        let slug_key = new_slug_key(ctx.sender(), slug_str);
+        assert!(!dynamic_field::exists_(registry_id, slug_key), get_e_slug_already_taken());
 
-        let profile = LinkTreeProfile {
-            id: object::new(ctx),
-            owner: ctx.sender(),
-            slug: slug_str,
-            base_username,
-            avatar_cid: avatar_cid.to_string(),
-            bio: bio.to_string(),
-            links: vec_map::empty(),
-            theme: theme.to_string(),
+        // 3. Full slug oluştur: username/slug
+        let full_slug = build_full_slug(&username_str, &slug_str);
+
+        // ctx.sender() çağrısını önce yap
+        let sender = ctx.sender();
+
+        let profile = new_profile(
+            ctx,
+            sender,
+            full_slug,  // Artık username/slug formatında
+            username_str,
+            avatar_cid.to_string(),
+            bio.to_string(),
+            vec_map::empty(),
+            theme.to_string(),
             is_category,
-            parent_slug: parent_slug.to_string(),
-            created_at: clock.timestamp_ms(),
-        };
+            parent_slug.to_string(),
+            clock.timestamp_ms(),
+        );
 
-        let profile_id = object::uid_to_address(&profile.id);
+        let profile_id = get_profile_id(&profile);
 
-        dynamic_field::add(&mut registry.id, slug_key, profile_id);
+        // 4. Owner + slug ile mapping ekle
+        dynamic_field::add(registry_id, slug_key, profile_id);
 
-        event::emit(ProfileCreated {
-            profile_id,
-            owner: ctx.sender(),
-            slug: profile.slug,
-            is_category,
-        });
-        transfer::transfer(profile, ctx.sender());
-    }
-
-    /// Base username çıkar
-    fun extract_base_username(slug: &String): String {
-        let bytes = slug.as_bytes();
-        let mut i = 0;
-        let len = bytes.length();
-        
-        while (i < len) {
-            if (*bytes.borrow(i) == 45) {
-                break
-            };
-            i = i + 1;
-        };
-        
-        if (i == len) {
-            *slug
+        // 5. Kullanıcının profil listesine ekle
+        let user_key = new_user_profiles_key(ctx.sender());
+        if (dynamic_field::exists_(registry_id, user_key)) {
+            let profiles = dynamic_field::borrow_mut<UserProfilesKey, vector<address>>(
+                registry_id,
+                user_key
+            );
+            profiles.push_back(profile_id);
         } else {
-            let mut base_bytes = vector::empty<u8>();
-            let mut j = 0;
-            while (j < i) {
-                base_bytes.push_back(*bytes.borrow(j));
-                j = j + 1;
-            };
-            base_bytes.to_string()
-        }
+            let mut profiles = vector::empty<address>();
+            profiles.push_back(profile_id);
+            dynamic_field::add(registry_id, user_key, profiles);
+        };
+
+        emit_profile_created(
+            profile_id,
+            ctx.sender(),
+            username_str,
+            slug_str,
+            full_slug,
+            is_category,
+        );
+        transfer_profile(profile, ctx.sender());
     }
 
-    /// Slug resolve
-    public fun resolve_slug(registry: &Registry, slug: vector<u8>): address {
-        let key = SlugKey { slug: slug.to_string() };
-        *dynamic_field::borrow<SlugKey, address>(&registry.id, key)
-    }
-
-    /// Username owner
-    public fun get_username_owner(registry: &Registry, username: vector<u8>): address {
-        let key = UsernameOwner { username: username.to_string() };
-        *dynamic_field::borrow<UsernameOwner, address>(&registry.id, key)
-    }
-
-    /// Update profile
+    /// Update profile - Ana fonksiyon burada kalıyor
     entry fun update_profile(
         profile: &mut LinkTreeProfile,
         bio: vector<u8>,
@@ -227,172 +231,20 @@ module walrus_linktree::profile {
         theme: vector<u8>,
         ctx: &TxContext
     ) {
-        assert!(profile.owner == ctx.sender(), ENotOwner);
+        assert!(types::get_owner(profile) == ctx.sender(), get_e_not_owner());
         
-        profile.bio = bio.to_string();
-        profile.avatar_cid = avatar_cid.to_string();
-        profile.theme = theme.to_string();
+        set_bio(profile, bio.to_string());
+        set_avatar_cid(profile, avatar_cid.to_string());
+        set_theme(profile, theme.to_string());
 
-        event::emit(ProfileUpdated {
-            profile_id: object::uid_to_address(&profile.id),
-        });
-    }
-
-    /// 🔒 Add link - VALIDATION İLE!
-    entry fun add_link(
-        profile: &mut LinkTreeProfile,
-        label: vector<u8>,
-        url: vector<u8>,
-        ctx: &TxContext
-    ) {
-        assert!(profile.owner == ctx.sender(), ENotOwner);
-        
-        let label_str = label.to_string();
-        let url_str = url.to_string();
-
-        // 🔒 Internal link validasyonu (/, ./, ../ ile başlıyorsa)
-        let url_bytes = url_str.as_bytes();
-        if (url_bytes.length() > 0 && is_internal_link(&url_str)) {
-            // URL'den username çıkar: /myusername-shopping → myusername
-            let _link_username = extract_username_from_url(&url_str);
-            
-            // Basit kontrol: internal link'ler sadece aynı owner tarafından eklenebilir
-            // Bu durumda sadece uyarı ver, engelleme
-            // assert!(link_username == profile.base_username, EInternalLinkNotAllowed);
-        };
-
-        if (vec_map::contains(&profile.links, &label_str)) {
-            let (_key, _value) = vec_map::remove(&mut profile.links, &label_str);
-        };
-        
-        vec_map::insert(&mut profile.links, label_str, url_str);
-
-        event::emit(LinkAdded {
-            profile_id: object::uid_to_address(&profile.id),
-            label: label_str,
-        });
-    }
-
-    /// 🆕 Internal link kontrolü
-    fun is_internal_link(url: &String): bool {
-        let bytes = url.as_bytes();
-        if (bytes.length() == 0) return false;
-        
-        let first_byte = *bytes.borrow(0);
-        // / ile başlıyorsa
-        if (first_byte == 47) return true; // 47 = '/'
-        
-        // ./ ile başlıyorsa
-        if (bytes.length() >= 2 && first_byte == 46 && *bytes.borrow(1) == 47) return true; // 46 = '.'
-        
-        // ../ ile başlıyorsa
-        if (bytes.length() >= 3 && first_byte == 46 && *bytes.borrow(1) == 46 && *bytes.borrow(2) == 47) return true;
-        
-        false
-    }
-
-    /// 🆕 URL'den username çıkar (iyileştirilmiş)
-    fun extract_username_from_url(url: &String): String {
-        let bytes = url.as_bytes();
-        let mut username_bytes = vector::empty<u8>();
-        let mut i = 0;
-        let len = bytes.length();
-        
-        // İlk karakterleri atla (/, ./, ../)
-        if (len > 0 && *bytes.borrow(0) == 47) {
-            i = 1; // '/' karakterini atla
-        } else if (len > 1 && *bytes.borrow(0) == 46 && *bytes.borrow(1) == 47) {
-            i = 2; // './' karakterlerini atla
-        } else if (len > 2 && *bytes.borrow(0) == 46 && *bytes.borrow(1) == 46 && *bytes.borrow(2) == 47) {
-            i = 3; // '../' karakterlerini atla
-        };
-        
-        while (i < len) {
-            let byte = *bytes.borrow(i);
-            // Username'in sonu: -, ?, #, &, / karakterlerinde dur
-            if (byte == 45 || byte == 63 || byte == 35 || byte == 38 || byte == 47) break;
-            username_bytes.push_back(byte);
-            i = i + 1;
-        };
-        
-        username_bytes.to_string()
-    }
-
-    /// Remove link
-    entry fun remove_link(
-        profile: &mut LinkTreeProfile,
-        label: vector<u8>,
-        ctx: &TxContext
-    ) {
-        assert!(profile.owner == ctx.sender(), ENotOwner);
-        
-        let label_str = label.to_string();
-        assert!(vec_map::contains(&profile.links, &label_str), ELinkNotFound);
-        
-        let (_key, _value) = vec_map::remove(&mut profile.links, &label_str);
-    }
-
-    /// Clear links
-    entry fun clear_links(
-        profile: &mut LinkTreeProfile,
-        ctx: &TxContext
-    ) {
-        assert!(profile.owner == ctx.sender(), ENotOwner);
-        profile.links = vec_map::empty();
-    }
-
-    // === Getters ===
-
-    public fun get_owner(profile: &LinkTreeProfile): address {
-        profile.owner
-    }
-
-    public fun get_slug(profile: &LinkTreeProfile): String {
-        profile.slug
-    }
-
-    public fun get_base_username(profile: &LinkTreeProfile): String {
-        profile.base_username
-    }
-
-    public fun get_bio(profile: &LinkTreeProfile): String {
-        profile.bio
-    }
-
-    public fun get_avatar_cid(profile: &LinkTreeProfile): String {
-        profile.avatar_cid
-    }
-
-    public fun get_theme(profile: &LinkTreeProfile): String {
-        profile.theme
-    }
-
-    public fun get_links(profile: &LinkTreeProfile): &VecMap<String, String> {
-        &profile.links
-    }
-
-    public fun get_is_category(profile: &LinkTreeProfile): bool {
-        profile.is_category
-    }
-
-    public fun get_parent_slug(profile: &LinkTreeProfile): String {
-        profile.parent_slug
-    }
-
-    public fun get_created_at(profile: &LinkTreeProfile): u64 {
-        profile.created_at
-    }
-
-    public fun get_link_count(profile: &LinkTreeProfile): u64 {
-        profile.links.length()
+        emit_profile_updated(get_profile_id(profile));
     }
 
     // Test helper
     #[test_only]
     public fun test_init(ctx: &mut TxContext) {
-        let registry = Registry {
-            id: object::new(ctx),
-        };
-        transfer::share_object(registry);
+        use sui_profile::types::new_registry;
+        let registry = new_registry(ctx);
+        share_registry(registry);
     }
 }

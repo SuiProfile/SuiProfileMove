@@ -1,0 +1,30 @@
+# Walrus Linktree - Testnet Deployment IDs
+# Deployed: Epoch 898
+
+## Package
+PACKAGE_ID=0x726652332d44d3c05f18576636ec0e2803ec334fab2c6cc92f865e2135d36947
+
+## Shared Objects (Registry)
+PROFILE_REGISTRY_ID=0x5414c2645a5ca2272cee2ddc0ed986c9e8b0588886ff3a18b54fe9748d6315d8
+STATS_REGISTRY_ID=0x1872626b950863aa7e421e44258887c9b8157c9c870ee768eaebd483742e2495
+
+## Other Objects
+DISPLAY_ID=0xb77b7a3756b4dd33de2c1be95f61af93d2d56a203d7cb39b1bf631d8f7b887f9
+PUBLISHER_ID=0x397be8794623493e4574428668faa5f492d2cb04e6b2dca9e87b662dffc7bc8c
+UPGRADE_CAP_ID=0x1d56dd41e5839974f7694f504d4f850fbe79977d233b4161e85c1248304751b0
+
+## System Objects
+CLOCK_ID=0x6
+
+## Transaction
+TX_DIGEST=Ga18pdZp1rkkCVLjE2GASGatF5MZqGY8xFq35WNQUtnT
+
+## Explorer Links
+Package: https://testnet.suivision.xyz/package/0x726652332d44d3c05f18576636ec0e2803ec334fab2c6cc92f865e2135d36947
+Transaction: https://testnet.suivision.xyz/txblock/Ga18pdZp1rkkCVLjE2GASGatF5MZqGY8xFq35WNQUtnT
+
+## New Features in This Version
+- ✅ Username limit: Max 3 usernames per owner
+- ✅ Owner-based username list tracking
+- ✅ New error code: EUsernameLimitReached (8)
+- ✅ New functions: usernames_count(), user_has_username()

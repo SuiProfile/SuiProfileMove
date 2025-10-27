@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Functions Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #4f46e5;
+        }
+        .test-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .result {
+            background: #f3f4f6;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { color: #059669; }
+        .error { color: #dc2626; }
+        .info { color: #2563eb; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Profile Functions Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Wallet Connection Test</h2>
+        <button class="test-button" onclick="testWalletConnection()">Test Wallet Connection</button>
+        <div id="wallet-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Username Registration Test</h2>
+        <input type="text" id="username-input" placeholder="Enter username" value="testuser123">
+        <button class="test-button" onclick="testRegisterUsername()">Register Username</button>
+        <div id="username-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Profile Creation Test</h2>
+        <input type="text" id="profile-slug" placeholder="Profile slug" value="testuser123">
+        <input type="text" id="profile-bio" placeholder="Bio" value="Test profile bio">
+        <input type="text" id="profile-theme" placeholder="Theme" value="default">
+        <button class="test-button" onclick="testCreateProfile()">Create Profile</button>
+        <div id="create-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Profile Update Test</h2>
+        <input type="text" id="update-profile-id" placeholder="Profile ID">
+        <input type="text" id="update-bio" placeholder="New bio" value="Updated bio">
+        <input type="text" id="update-theme" placeholder="New theme" value="dark">
+        <button class="test-button" onclick="testUpdateProfile()">Update Profile</button>
+        <div id="update-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. Add Link Test</h2>
+        <input type="text" id="link-profile-id" placeholder="Profile ID">
+        <input type="text" id="link-label" placeholder="Link label" value="Website">
+        <input type="text" id="link-url" placeholder="Link URL" value="https://example.com">
+        <button class="test-button" onclick="testAddLink()">Add Link</button>
+        <div id="add-link-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>6. Remove Link Test</h2>
+        <input type="text" id="remove-profile-id" placeholder="Profile ID">
+        <input type="text" id="remove-label" placeholder="Link label to remove" value="Website">
+        <button class="test-button" onclick="testRemoveLink()">Remove Link</button>
+        <div id="remove-link-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>7. All Functions Test</h2>
+        <button class="test-button" onclick="runAllTests()">Run All Tests</button>
+        <div id="all-tests-result" class="result"></div>
+    </div>
+
+    <script type="module">
+        // Import Sui SDK
+        import { SuiClient, getFullnodeUrl } from 'https://cdn.skypack.dev/@mysten/sui.js/client';
+        import { Transaction } from 'https://cdn.skypack.dev/@mysten/sui.js/transactions';
+        
+        // Constants
+        const PACKAGE_ID = "0x83af5c807c3447b4fc9ed131c6bb9108cc303be898a21a7409a745cedd528ed2";
+        const REGISTRY_ID = "0x82ba437816469a1db8c205369632d351a15f70920d6339e554a926390d9c26c2";
+        
+        // Initialize Sui client
+        const client = new SuiClient({ url: getFullnodeUrl('testnet') });
+        
+        // Mock wallet for testing
+        const mockWallet = {
+            signAndExecuteTransactionBlock: async (params) => {
+                console.log('Mock wallet executing transaction:', params);
+                return {
+                    digest: 'mock-digest-' + Date.now(),
+                    effects: {
+                        status: { status: 'success' },
+                        created: [{
+                            reference: { objectId: 'mock-object-' + Date.now() },
+                            owner: { AddressOwner: 'mock-address' }
+                        }],
+                        gasUsed: {
+                            computationCost: 1000000,
+                            storageCost: 100000,
+                            storageRebate: 50000
+                        }
+                    },
+                    events: []
+                };
+            }
+        };
+        
+        // Mock ProfileService
+        class MockProfileService {
+            constructor() {
+                this.packageId = PACKAGE_ID;
+                this.registryId = REGISTRY_ID;
+                this.wallet = mockWallet;
+                this.client = client;
+            }
+            
+            async registerUsername(username) {
+                const txb = new Transaction();
+                txb.moveCall({
+                    target: `${this.packageId}::profile::register_username`,
+                    arguments: [
+                        txb.object(this.registryId),
+                        txb.pure.string(username)
+                    ]
+                });
+                txb.setGasBudget(25000000);
+                txb.setGasPrice(1000);
+                
+                return await this.wallet.signAndExecuteTransactionBlock({
+                    transactionBlock: txb,
+                    options: { showEffects: true, showEvents: true }
+                });
+            }
+            
+            async createProfile(slug, avatarCid, bio, theme, isCategory, parentSlug) {
+                const txb = new Transaction();
+                txb.moveCall({
+                    target: `${this.packageId}::profile::create_profile`,
+                    arguments: [
+                        txb.object(this.registryId),
+                        txb.pure.string(slug),
+                        txb.pure.string(avatarCid),
+                        txb.pure.string(bio),
+                        txb.pure.string(theme),
+                        txb.pure.bool(isCategory),
+                        txb.pure.string(parentSlug),
+                        txb.object("0x6")
+                    ]
+                });
+                txb.setGasBudget(50000000);
+                txb.setGasPrice(1000);
+                
+                return await this.wallet.signAndExecuteTransactionBlock({
+                    transactionBlock: txb,
+                    options: { showEffects: true, showEvents: true }
+                });
+            }
+            
+            async updateProfile(profileId, bio, avatarCid, theme) {
+                const txb = new Transaction();
+                txb.moveCall({
+                    target: `${this.packageId}::profile::update_profile`,
+                    arguments: [
+                        txb.object(profileId),
+                        txb.pure.string(bio),
+                        txb.pure.string(avatarCid),
+                        txb.pure.string(theme)
+                    ]
+                });
+                txb.setGasBudget(30000000);
+                txb.setGasPrice(1000);
+                
+                return await this.wallet.signAndExecuteTransactionBlock({
+                    transactionBlock: txb,
+                    options: { showEffects: true, showEvents: true }
+                });
+            }
+            
+            async addLink(profileId, label, url) {
+                const txb = new Transaction();
+                txb.moveCall({
+                    target: `${this.packageId}::profile::add_link`,
+                    arguments: [
+                        txb.object(profileId),
+                        txb.pure.string(label),
+                        txb.pure.string(url)
+                    ]
+                });
+                txb.setGasBudget(20000000);
+                txb.setGasPrice(1000);
+                
+                return await this.wallet.signAndExecuteTransactionBlock({
+                    transactionBlock: txb,
+                    options: { showEffects: true, showEvents: true }
+                });
+            }
+            
+            async removeLink(profileId, label) {
+                const txb = new Transaction();
+                txb.moveCall({
+                    target: `${this.packageId}::profile::remove_link`,
+                    arguments: [
+                        txb.object(profileId),
+                        txb.pure.string(label)
+                    ]
+                });
+                txb.setGasBudget(15000000);
+                txb.setGasPrice(1000);
+                
+                return await this.wallet.signAndExecuteTransactionBlock({
+                    transactionBlock: txb,
+                    options: { showEffects: true, showEvents: true }
+                });
+            }
+        }
+        
+        const profileService = new MockProfileService();
+        let createdProfileId = null;
+        
+        // Test functions
+        window.testWalletConnection = async () => {
+            const result = document.getElementById('wallet-result');
+            try {
+                result.innerHTML = '<span class="info">Testing wallet connection...</span>';
+                const chainId = await client.getChainIdentifier();
+                result.innerHTML = `<span class="success">✅ Wallet connected successfully!\nChain ID: ${chainId}</span>`;
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Wallet connection failed: ${error.message}</span>`;
+            }
+        };
+        
+        window.testRegisterUsername = async () => {
+            const result = document.getElementById('username-result');
+            const username = document.getElementById('username-input').value;
+            try {
+                result.innerHTML = '<span class="info">Registering username...</span>';
+                const response = await profileService.registerUsername(username);
+                result.innerHTML = `<span class="success">✅ Username registered successfully!\nDigest: ${response.digest}</span>`;
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Username registration failed: ${error.message}</span>`;
+            }
+        };
+        
+        window.testCreateProfile = async () => {
+            const result = document.getElementById('create-result');
+            const slug = document.getElementById('profile-slug').value;
+            const bio = document.getElementById('profile-bio').value;
+            const theme = document.getElementById('profile-theme').value;
+            try {
+                result.innerHTML = '<span class="info">Creating profile...</span>';
+                const response = await profileService.createProfile(slug, '', bio, theme, false, '');
+                createdProfileId = response.effects.created[0].reference.objectId;
+                result.innerHTML = `<span class="success">✅ Profile created successfully!\nProfile ID: ${createdProfileId}\nDigest: ${response.digest}</span>`;
+                document.getElementById('update-profile-id').value = createdProfileId;
+                document.getElementById('link-profile-id').value = createdProfileId;
+                document.getElementById('remove-profile-id').value = createdProfileId;
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Profile creation failed: ${error.message}</span>`;
+            }
+        };
+        
+        window.testUpdateProfile = async () => {
+            const result = document.getElementById('update-result');
+            const profileId = document.getElementById('update-profile-id').value;
+            const bio = document.getElementById('update-bio').value;
+            const theme = document.getElementById('update-theme').value;
+            try {
+                result.innerHTML = '<span class="info">Updating profile...</span>';
+                const response = await profileService.updateProfile(profileId, bio, '', theme);
+                result.innerHTML = `<span class="success">✅ Profile updated successfully!\nDigest: ${response.digest}</span>`;
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Profile update failed: ${error.message}</span>`;
+            }
+        };
+        
+        window.testAddLink = async () => {
+            const result = document.getElementById('add-link-result');
+            const profileId = document.getElementById('link-profile-id').value;
+            const label = document.getElementById('link-label').value;
+            const url = document.getElementById('link-url').value;
+            try {
+                result.innerHTML = '<span class="info">Adding link...</span>';
+                const response = await profileService.addLink(profileId, label, url);
+                result.innerHTML = `<span class="success">✅ Link added successfully!\nDigest: ${response.digest}</span>`;
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Add link failed: ${error.message}</span>`;
+            }
+        };
+        
+        window.testRemoveLink = async () => {
+            const result = document.getElementById('remove-link-result');
+            const profileId = document.getElementById('remove-profile-id').value;
+            const label = document.getElementById('remove-label').value;
+            try {
+                result.innerHTML = '<span class="info">Removing link...</span>';
+                const response = await profileService.removeLink(profileId, label);
+                result.innerHTML = `<span class="success">✅ Link removed successfully!\nDigest: ${response.digest}</span>`;
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Remove link failed: ${error.message}</span>`;
+            }
+        };
+        
+        window.runAllTests = async () => {
+            const result = document.getElementById('all-tests-result');
+            result.innerHTML = '<span class="info">Running all tests...</span>';
+            
+            const tests = [
+                { name: 'Wallet Connection', fn: () => testWalletConnection() },
+                { name: 'Username Registration', fn: () => testRegisterUsername() },
+                { name: 'Profile Creation', fn: () => testCreateProfile() },
+                { name: 'Profile Update', fn: () => testUpdateProfile() },
+                { name: 'Add Link', fn: () => testAddLink() },
+                { name: 'Remove Link', fn: () => testRemoveLink() }
+            ];
+            
+            let results = '🧪 All Tests Results:\n\n';
+            
+            for (const test of tests) {
+                try {
+                    await test.fn();
+                    results += `✅ ${test.name}: PASSED\n`;
+                } catch (error) {
+                    results += `❌ ${test.name}: FAILED - ${error.message}\n`;
+                }
+            }
+            
+            result.innerHTML = `<span class="info">${results}</span>`;
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Walrus Blob Verifier</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #374151;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .button {
+            background-color: #6366f1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .button:hover {
+            background-color: #4f46e5;
+        }
+        .button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid;
+        }
+        .result.success {
+            background-color: #f0fdf4;
+            border-color: #bbf7d0;
+            color: #166534;
+        }
+        .result.error {
+            background-color: #fef2f2;
+            border-color: #fecaca;
+            color: #dc2626;
+        }
+        .result.info {
+            background-color: #dbeafe;
+            border-color: #93c5fd;
+            color: #1e40af;
+        }
+        .image-preview {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 8px;
+            margin: 16px 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .blob-info {
+            background-color: #f9fafb;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .endpoints {
+            background-color: #f3f4f6;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .endpoint {
+            font-family: monospace;
+            font-size: 12px;
+            color: #6b7280;
+            margin: 4px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Walrus Blob Verifier</h1>
+            <p>Upload ettiğiniz blobId'yi doğrulayın ve resmi görüntüleyin</p>
+        </div>
+
+        <div class="input-group">
+            <label for="blobId">Blob ID:</label>
+            <input type="text" id="blobId" placeholder="Blob ID'nizi buraya yapıştırın (örn: M4hsZGQ1oCktdzegB6HnI6Mi28S2nqOPHxK-W7_4BUk)">
+        </div>
+
+        <button class="button" onclick="verifyBlob()">🔍 Blob'u Doğrula</button>
+        <button class="button" onclick="testAllEndpoints()">🌐 Tüm Endpoint'leri Test Et</button>
+        <button class="button" onclick="clearResults()">🗑️ Temizle</button>
+
+        <div id="result"></div>
+        <div id="imagePreview"></div>
+        <div id="blobInfo"></div>
+
+        <div class="endpoints">
+            <h3>Test Edilecek Endpoint'ler:</h3>
+            <div class="endpoint">https://aggregator.walrus-testnet.walrus.space</div>
+            <div class="endpoint">https://walrus-testnet-aggregator.stakely.io</div>
+            <div class="endpoint">https://walrus-testnet-aggregator.nami.cloud</div>
+            <div class="endpoint">https://walrus-testnet-aggregator.stakecraft.com</div>
+            <div class="endpoint">https://walrus-testnet-aggregator.everstake.one</div>
+            <div class="endpoint">https://walrus-testnet-aggregator.chainbase.online</div>
+            <div class="endpoint">https://walrus-testnet-aggregator.crouton.digital</div>
+            <div class="endpoint">https://walrus-testnet-aggregator.dzdaic.com</div>
+        </div>
+    </div>
+
+    <script>
+        const aggregators = [
+            'https://aggregator.walrus-testnet.walrus.space',
+            'https://walrus-testnet-aggregator.stakely.io',
+            'https://walrus-testnet-aggregator.nami.cloud',
+            'https://walrus-testnet-aggregator.stakecraft.com',
+            'https://walrus-testnet-aggregator.everstake.one',
+            'https://walrus-testnet-aggregator.chainbase.online',
+            'https://walrus-testnet-aggregator.crouton.digital',
+            'https://walrus-testnet-aggregator.dzdaic.com'
+        ];
+
+        function showResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="result ${type}">${message}</div>`;
+        }
+
+        function showImage(imageUrl, blobId) {
+            const imageDiv = document.getElementById('imagePreview');
+            imageDiv.innerHTML = `
+                <h3>📸 Resim Önizleme:</h3>
+                <img src="${imageUrl}" class="image-preview" alt="Blob Image">
+                <p><strong>Blob ID:</strong> ${blobId}</p>
+                <p><strong>URL:</strong> <a href="${imageUrl}" target="_blank">${imageUrl}</a></p>
+            `;
+        }
+
+        function showBlobInfo(info) {
+            const infoDiv = document.getElementById('blobInfo');
+            infoDiv.innerHTML = `
+                <h3>📊 Blob Bilgileri:</h3>
+                <div class="blob-info">${JSON.stringify(info, null, 2)}</div>
+            `;
+        }
+
+        async function verifyBlob() {
+            const blobId = document.getElementById('blobId').value.trim();
+            
+            if (!blobId) {
+                showResult('Lütfen bir Blob ID girin!', 'error');
+                return;
+            }
+
+            showResult('Blob doğrulanıyor...', 'info');
+
+            // Try all aggregators
+            for (let i = 0; i < aggregators.length; i++) {
+                const aggregator = aggregators[i];
+                showResult(`Trying aggregator ${i + 1}/${aggregators.length}: ${aggregator}`, 'info');
+
+                try {
+                    const imageUrl = `${aggregator}/v1/blobs/${blobId}`;
+                    
+                    // Test if image loads
+                    const response = await fetch(imageUrl, { method: 'HEAD' });
+                    
+                    if (response.ok) {
+                        showResult(`✅ Blob bulundu!<br>Endpoint: ${aggregator}<br>URL: ${imageUrl}`, 'success');
+                        showImage(imageUrl, blobId);
+                        
+                        // Try to get blob info
+                        try {
+                            const infoResponse = await fetch(`${aggregator}/v1/blobs/${blobId}/info`);
+                            if (infoResponse.ok) {
+                                const info = await infoResponse.json();
+                                showBlobInfo(info);
+                            }
+                        } catch (e) {
+                            console.log('Blob info not available');
+                        }
+                        
+                        return;
+                    }
+                } catch (error) {
+                    console.log(`Failed with ${aggregator}:`, error.message);
+                }
+            }
+
+            showResult('❌ Blob bulunamadı! Tüm endpoint\'ler denendi.', 'error');
+        }
+
+        async function testAllEndpoints() {
+            showResult('Tüm endpoint\'ler test ediliyor...', 'info');
+            
+            const results = [];
+            
+            for (const aggregator of aggregators) {
+                try {
+                    const response = await fetch(`${aggregator}/v1/api`, { method: 'GET' });
+                    if (response.ok) {
+                        results.push(`✅ ${aggregator} - Çalışıyor`);
+                    } else {
+                        results.push(`❌ ${aggregator} - HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    results.push(`❌ ${aggregator} - ${error.message}`);
+                }
+            }
+            
+            showResult(`<h3>Endpoint Test Sonuçları:</h3><br>${results.join('<br>')}`, 'info');
+        }
+
+        function clearResults() {
+            document.getElementById('result').innerHTML = '';
+            document.getElementById('imagePreview').innerHTML = '';
+            document.getElementById('blobInfo').innerHTML = '';
+            document.getElementById('blobId').value = '';
+        }
+
+        // Auto-focus on input
+        document.getElementById('blobId').focus();
+    </script>
+</body>
+</html>

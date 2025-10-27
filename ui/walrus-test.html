@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Walrus Upload Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .upload-area {
+            border: 2px dashed #6366f1;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .upload-area:hover {
+            background-color: #f3f4f6;
+        }
+        .upload-area.dragover {
+            background-color: #e0e7ff;
+            border-color: #4f46e5;
+        }
+        .preview {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .status {
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background-color: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        .status.error {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        .status.info {
+            background-color: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+        button {
+            background-color: #6366f1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        button:hover {
+            background-color: #4f46e5;
+        }
+        button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+        .endpoints {
+            background-color: #f9fafb;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .endpoint {
+            font-family: monospace;
+            font-size: 12px;
+            color: #6b7280;
+            margin: 4px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Walrus Upload Test</h1>
+        <p>Test Walrus blob storage upload functionality with fallback endpoints.</p>
+
+        <div class="endpoints">
+            <h3>Testing Endpoints:</h3>
+            <div class="endpoint">Primary: https://publisher.walrus-testnet.walrus.space</div>
+            <div class="endpoint">Fallback 1: https://walrus-testnet-publisher.stakely.io</div>
+            <div class="endpoint">Fallback 2: https://walrus-testnet-publisher.nami.cloud</div>
+            <div class="endpoint">Fallback 3: https://walrus-testnet-publisher.stakecraft.com</div>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <p>Click here or drag and drop an image file</p>
+            <p style="color: #6b7280; font-size: 14px;">Supported: JPEG, PNG, GIF, WebP (max 10MB)</p>
+        </div>
+
+        <input type="file" id="fileInput" accept="image/*" style="display: none;">
+
+        <div id="preview"></div>
+        <div id="status"></div>
+
+        <button id="uploadBtn" disabled>Upload to Walrus</button>
+        <button id="testBtn">Test Endpoints</button>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const preview = document.getElementById('preview');
+        const status = document.getElementById('status');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const testBtn = document.getElementById('testBtn');
+
+        let selectedFile = null;
+
+        // Working Walrus endpoints from official documentation
+        const endpoints = [
+            'https://publisher.walrus-testnet.walrus.space',
+            'https://walrus-testnet-publisher.stakely.io',
+            'https://walrus-testnet-publisher.nami.cloud',
+            'https://walrus-testnet-publisher.stakecraft.com',
+            'https://walrus-testnet-publisher.everstake.one',
+            'https://walrus-testnet-publisher.chainbase.online',
+            'https://walrus-testnet-publisher.crouton.digital',
+            'https://walrus-testnet-publisher.dzdaic.com'
+        ];
+
+        function showStatus(message, type = 'info') {
+            status.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function showPreview(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.innerHTML = `<img src="${e.target.result}" class="preview" alt="Preview">`;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function validateFile(file) {
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            
+            if (file.size > maxSize) {
+                showStatus('File size must be less than 10MB', 'error');
+                return false;
+            }
+            
+            if (!allowedTypes.includes(file.type)) {
+                showStatus('Only image files are allowed (JPEG, PNG, GIF, WebP)', 'error');
+                return false;
+            }
+            
+            return true;
+        }
+
+        async function uploadToWalrus(file, endpoint) {
+            try {
+                // Method 1: Try direct binary upload first (more reliable for images)
+                console.log('Trying direct binary upload first...');
+                let response = await fetch(`${endpoint}/v1/blobs?epochs=5`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': file.type,
+                    },
+                    body: file,
+                });
+
+                // If direct upload fails, try FormData
+                if (!response.ok) {
+                    console.log('Direct upload failed, trying FormData...');
+                    const formData = new FormData();
+                    formData.append('file', file, file.name);
+                    
+                    response = await fetch(`${endpoint}/v1/blobs?epochs=5`, {
+                        method: 'PUT',
+                        body: formData,
+                    });
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                console.log('Walrus response:', result);
+                
+                // According to documentation, response format is:
+                // { "newlyCreated": { "blobObject": { "blobId": "...", ... } } }
+                let blobId = null;
+                
+                if (result.newlyCreated && result.newlyCreated.blobObject) {
+                    blobId = result.newlyCreated.blobObject.blobId;
+                } else if (result.blobId) {
+                    blobId = result.blobId;
+                } else if (result.id) {
+                    blobId = result.id;
+                }
+                
+                if (!blobId) {
+                    throw new Error(`No blob ID found in response: ${JSON.stringify(result)}`);
+                }
+                
+                return {
+                    success: true,
+                    blobId: blobId,
+                    endpoint: endpoint
+                };
+            } catch (error) {
+                return {
+                    success: false,
+                    error: error.message,
+                    endpoint: endpoint
+                };
+            }
+        }
+
+        async function tryUploadWithFallback(file) {
+            showStatus('Starting upload...', 'info');
+            
+            for (let i = 0; i < endpoints.length; i++) {
+                const endpoint = endpoints[i];
+                showStatus(`Trying endpoint ${i + 1}/${endpoints.length}: ${endpoint}`, 'info');
+                
+                const result = await uploadToWalrus(file, endpoint);
+                
+                if (result.success) {
+                    showStatus(`✅ Upload successful!<br>BlobId: ${result.blobId}<br>Endpoint: ${result.endpoint}`, 'success');
+                    return result;
+                } else {
+                    console.error(`Failed with ${endpoint}:`, result.error);
+                }
+            }
+            
+            showStatus('❌ All endpoints failed. Please try again later.', 'error');
+            return null;
+        }
+
+        // Event listeners
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            if (!validateFile(file)) {
+                return;
+            }
+
+            selectedFile = file;
+            showPreview(file);
+            uploadBtn.disabled = false;
+            showStatus('File selected. Click "Upload to Walrus" to proceed.', 'info');
+        }
+
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+            
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Uploading...';
+            
+            const result = await tryUploadWithFallback(selectedFile);
+            
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = 'Upload to Walrus';
+            
+            if (result) {
+                // Show the uploaded image
+                const imageUrl = `https://aggregator.walrus-testnet.walrus.space/v1/blobs/${result.blobId}`;
+                preview.innerHTML = `
+                    <h3>Uploaded Image:</h3>
+                    <img src="${imageUrl}" class="preview" alt="Uploaded">
+                    <p><strong>BlobId:</strong> ${result.blobId}</p>
+                    <p><strong>URL:</strong> <a href="${imageUrl}" target="_blank">${imageUrl}</a></p>
+                `;
+            }
+        });
+
+        testBtn.addEventListener('click', async () => {
+            showStatus('Testing endpoints...', 'info');
+            
+            const testFile = new File(['test'], 'test.txt', { type: 'text/plain' });
+            let workingEndpoints = [];
+            
+            for (const endpoint of endpoints) {
+                showStatus(`Testing ${endpoint}...`, 'info');
+                
+                try {
+                    const response = await fetch(`${endpoint}/v1/blobs?epochs=1`, {
+                        method: 'PUT',
+                        body: testFile,
+                    });
+                    
+                    if (response.ok) {
+                        workingEndpoints.push(endpoint);
+                        console.log(`✅ ${endpoint} is working`);
+                    } else {
+                        console.log(`❌ ${endpoint} returned ${response.status}`);
+                    }
+                } catch (error) {
+                    console.log(`❌ ${endpoint} failed:`, error.message);
+                }
+            }
+            
+            if (workingEndpoints.length > 0) {
+                showStatus(`✅ Found ${workingEndpoints.length} working endpoints:<br>${workingEndpoints.join('<br>')}`, 'success');
+            } else {
+                showStatus('❌ No working endpoints found. All Walrus testnet endpoints may be down.', 'error');
+            }
+        });
+    </script>
+</body>
+</html>
